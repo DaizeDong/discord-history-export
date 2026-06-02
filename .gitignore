@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Local working notes / experiments
+scratch/
+*.local.md
+*.local.txt
+
+# NEVER commit user exports or tokens
+exports/
+all/
+all_json/
+organized/
+organized_json/
+*.html
+*.json
+!.claude-plugin/plugin.json
+!skills/**/*.json
+channels.txt
+config.json
+token*.txt
+*.token
+
+# DCE binary (downloaded at runtime, never bundled)
+bin/
+cli/
+DiscordChatExporter.Cli*
+*.zip
