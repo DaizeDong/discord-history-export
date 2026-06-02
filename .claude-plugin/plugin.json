@@ -1,0 +1,20 @@
+{
+  "name": "discord-history-export",
+  "version": "0.1.0",
+  "description": "Skill that exports the full history of any Discord server the user has joined, organized by category/channel, with both HTML (human reading) and JSON (analysis) outputs. Drives the official Tyrrrz/DiscordChatExporter CLI under the hood; uses Playwright MCP to drive a headed browser so the user can log in and pick the target server interactively, then extracts the user token from localStorage to authorize the export. Handles known DCE template gotchas (parent-container ID folders, forum channels, duplicate thread titles, Git Bash path interpretation by Windows .exe) and reorganizes the raw output into a readable category/<channel>.html + category/<channel>_threads/ layout.",
+  "author": {
+    "name": "DaizeDong"
+  },
+  "homepage": "https://github.com/DaizeDong/discord-history-export",
+  "license": "MIT",
+  "keywords": [
+    "discord",
+    "chat-export",
+    "history",
+    "archive",
+    "DiscordChatExporter",
+    "playwright",
+    "skill",
+    "claude-code"
+  ]
+}
