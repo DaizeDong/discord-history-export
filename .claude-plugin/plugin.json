@@ -9,12 +9,13 @@
   "license": "MIT",
   "keywords": [
     "discord",
+    "discord-export",
     "chat-export",
-    "history",
+    "chat-history",
     "archive",
-    "DiscordChatExporter",
     "playwright",
-    "skill",
-    "claude-code"
+    "discordchatexporter",
+    "data-export",
+    "skill"
   ]
 }
