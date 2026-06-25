@@ -1,6 +1,6 @@
 ---
 name: Discord History Export
-description: Use when the user wants to export the full message history of a Discord server they have joined - one channel, several channels, or the whole guild - into local files for archival, reading, or downstream analysis. Triggers include "export discord history", "download discord server", "archive discord chat", "拉 discord 群组聊天", "导出 discord 频道", "discord 历史归档", "save my discord messages". Drives the official Tyrrrz/DiscordChatExporter CLI; uses a Playwright-controlled browser so the user logs in once, picks the target server visually, and the skill captures the user token + guild ID automatically. Outputs HTML (for reading) and JSON (for analysis), organized by category/channel with thread sub-folders.
+description: "Use to export a joined Discord server's history to HTML+JSON via DiscordChatExporter. Triggers: export discord history, archive discord chat, 导出 discord 频道, 拉 discord 群组."
 ---
 
 # Discord History Export
