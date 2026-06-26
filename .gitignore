@@ -23,6 +23,20 @@ scratch/
 *.local.md
 *.local.txt
 
+# Build/agent metadata & scratch artifacts (never part of the skill)
+PROGRESS.md
+.sie/
+scratchpad/
+*.log
+
+# Secrets / credentials (never commit)
+secrets/
+.env
+!.env.example
+*.key
+*.pem
+*.cred
+
 # NEVER commit user exports or tokens
 exports/
 all/
