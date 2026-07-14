@@ -39,7 +39,7 @@ These come from real failures during the initial run. Apply automatically.
 1. **Always include `[%c]` (channel ID) in the output filename template.** Two threads in the same channel with identical titles will trigger a Windows `FileShare` violation and crash the entire export. Correct: `"exports/all/%t/%C [%c].html"`. Incorrect: `"exports/all/%t/%C.html"`.
 2. **Pass Windows-style paths to the `.exe`, not Git Bash `/c/...` paths.** Git Bash leaves `/c/Users/...` alone when handing to the Windows binary, which interprets it as `C:\c\Users\...` and silently writes 70 MB to the wrong drive root. Use `C:/Users/...` or `${PWD}` resolved by bash first.
 3. **`%t` in DCE is parent-container ID, NOT category name.** For a non-thread channel `%t` = category ID; for a thread `%t` = parent channel ID. The output folders are therefore Discord IDs, never human-readable names. Reorganize after export — see `scripts/reorganize.py`.
-4. **`--include-threads All`** — without this flag, forum channels (`help-forum`, `*-task-proposals`, `*-task-ideas`) export as empty because their entire content lives in threads.
+4. **`--include-threads All`** — without this flag, forum channels (e.g. `help-forum`, `ideas`, `proposals`) export as empty because their entire content lives in threads.
 5. **`--parallel 4`** — 1 is too slow on a 40-channel guild, 8+ trips Discord rate limits faster than DCE's backoff can absorb.
 6. **Token rotation reminder before closing the session.** The token appears in plaintext in the conversation. Tell the user to change their Discord password.
 
