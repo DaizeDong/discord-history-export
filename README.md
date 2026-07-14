@@ -63,7 +63,7 @@ What runs automatically:
 7. Reports total messages, top channels by volume, forbidden-channel skips, and forum-channel quirks
 8. Tells you to **change your Discord password** to invalidate the token that appeared in the transcript
 
-For a a mid-sized guild (a few dozen channels, tens of thousands of messages), end-to-end runtime is roughly 5–10 minutes; outputs are on the order of 100 MB of HTML plus a comparable JSON dataset.
+For a mid-sized guild (a few dozen channels, tens of thousands of messages), end-to-end runtime is roughly 5–10 minutes; outputs are on the order of 100 MB of HTML plus a comparable JSON dataset.
 
 ## How to invoke
 
