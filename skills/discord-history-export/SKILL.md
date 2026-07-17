@@ -5,8 +5,8 @@ description: "Use to export a joined Discord server's history to HTML+JSON via D
 
 # Discord History Export
 
-> **Caveat (ToS)**: Discord's Terms of Service forbid automating user accounts ("self-botting"), even for actions the user could perform by hand. The exporter sends one HTTP request per `before=` page, paced by DCE's built-in rate-limit handler — risk to a normal account doing a one-off export is low but non-zero. The skill must surface this to the user before any token is captured, and must offer the GDPR data-export route as an alternative.
-> **Caveat (token)**: The user's token grants full account access (DMs, settings, payments). It appears in the conversation transcript during this skill. After export, instruct the user to change their Discord password — this invalidates the token immediately.
+> **Caveat (ToS)**: Discord's Terms of Service forbid automating user accounts ("self-botting"), even for actions the user could perform by hand. The exporter sends one HTTP request per `before=` page, paced by DCE's built-in rate-limit handler, risk to a normal account doing a one-off export is low but non-zero. The skill must surface this to the user before any token is captured, and must offer the GDPR data-export route as an alternative.
+> **Caveat (token)**: The user's token grants full account access (DMs, settings, payments). It appears in the conversation transcript during this skill. After export, instruct the user to change their Discord password, this invalidates the token immediately.
 
 ## When To Use
 
@@ -17,10 +17,10 @@ description: "Use to export a joined Discord server's history to HTML+JSON via D
 
 ## When NOT To Use
 
-- Target is a **Group DM** (multi-person private chat) — Discord blocks Bot accounts from joining and self-bot detection is denser here. Use the official GDPR data export instead: Settings → Privacy & Safety → Request my Data.
-- User is a **server administrator** and willing to invite a Bot — that path is ToS-compliant. Hand off to the user, do not run this skill.
-- User wants **real-time monitoring** — DCE is one-shot. For polling DMs see `~/your-tool-dir/`.
-- Only a **single channel snapshot of <200 messages** is needed — call the Discord API directly with `requests`, faster than installing DCE.
+- Target is a **Group DM** (multi-person private chat), Discord blocks Bot accounts from joining and self-bot detection is denser here. Use the official GDPR data export instead: Settings → Privacy & Safety → Request my Data.
+- User is a **server administrator** and willing to invite a Bot, that path is ToS-compliant. Hand off to the user, do not run this skill.
+- User wants **real-time monitoring**, DCE is one-shot. For polling DMs see `~/your-tool-dir/`.
+- Only a **single channel snapshot of <200 messages** is needed, call the Discord API directly with `requests`, faster than installing DCE.
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ description: "Use to export a joined Discord server's history to HTML+JSON via D
 | Python 3.8+ | `python --version` | yes (reorganize script) |
 | Playwright MCP tools loaded | check `mcp__plugin_playwright_playwright__browser_*` | yes (user login flow) |
 | Internet | n/a | yes (DCE release + Discord API) |
-| `.NET runtime` | NOT required — the CLI release is self-contained |
+| `.NET runtime` | NOT required, the CLI release is self-contained |
 
 ## Critical Rules (Non-Negotiable)
 
@@ -38,9 +38,9 @@ These come from real failures during the initial run. Apply automatically.
 
 1. **Always include `[%c]` (channel ID) in the output filename template.** Two threads in the same channel with identical titles will trigger a Windows `FileShare` violation and crash the entire export. Correct: `"exports/all/%t/%C [%c].html"`. Incorrect: `"exports/all/%t/%C.html"`.
 2. **Pass Windows-style paths to the `.exe`, not Git Bash `/c/...` paths.** Git Bash leaves `/c/Users/...` alone when handing to the Windows binary, which interprets it as `C:\c\Users\...` and silently writes 70 MB to the wrong drive root. Use `C:/Users/...` or `${PWD}` resolved by bash first.
-3. **`%t` in DCE is parent-container ID, NOT category name.** For a non-thread channel `%t` = category ID; for a thread `%t` = parent channel ID. The output folders are therefore Discord IDs, never human-readable names. Reorganize after export — see `scripts/reorganize.py`.
-4. **`--include-threads All`** — without this flag, forum channels (e.g. `help-forum`, `ideas`, `proposals`) export as empty because their entire content lives in threads.
-5. **`--parallel 4`** — 1 is too slow on a 40-channel guild, 8+ trips Discord rate limits faster than DCE's backoff can absorb.
+3. **`%t` in DCE is parent-container ID, NOT category name.** For a non-thread channel `%t` = category ID; for a thread `%t` = parent channel ID. The output folders are therefore Discord IDs, never human-readable names. Reorganize after export, see `scripts/reorganize.py`.
+4. **`--include-threads All`**, without this flag, forum channels (e.g. `help-forum`, `ideas`, `proposals`) export as empty because their entire content lives in threads.
+5. **`--parallel 4`**, 1 is too slow on a 40-channel guild, 8+ trips Discord rate limits faster than DCE's backoff can absorb.
 6. **Token rotation reminder before closing the session.** The token appears in plaintext in the conversation. Tell the user to change their Discord password.
 
 ## Workflow
@@ -49,8 +49,8 @@ These come from real failures during the initial run. Apply automatically.
 
 Ask in one focused message (NOT a barrage):
 
-- Guild type — server (OK), group DM (abort, route to GDPR), single channel (use `export` not `exportguild`)
-- Admin of server? — if yes, recommend Bot route instead
+- Guild type, server (OK), group DM (abort, route to GDPR), single channel (use `export` not `exportguild`)
+- Admin of server?, if yes, recommend Bot route instead
 - Acknowledge ToS risk in one sentence so the user can opt out
 
 ### Step 2: Provision DCE CLI
@@ -79,7 +79,7 @@ For other OS/arch, swap the asset name (`linux-x64`, `osx-arm64`, etc.).
 
 ### Step 3: Capture token + guild ID via headed browser
 
-Load the Playwright MCP tools first (they are deferred — use `ToolSearch` with `select:mcp__plugin_playwright_playwright__browser_navigate,...`).
+Load the Playwright MCP tools first (they are deferred, use `ToolSearch` with `select:mcp__plugin_playwright_playwright__browser_navigate,...`).
 
 ```js
 // 1. Open login page — user logs in interactively (incl. 2FA)
@@ -103,15 +103,15 @@ const token = await page.evaluate(() => {
 });
 ```
 
-If the iframe trick returns `null`: Discord may have patched it again. Fall back to inspecting a network request — `browser_network_requests` with filter `discord\.com/api` then read the `Authorization` header from any one of them.
+If the iframe trick returns `null`: Discord may have patched it again. Fall back to inspecting a network request, `browser_network_requests` with filter `discord\.com/api` then read the `Authorization` header from any one of them.
 
-### Step 4: Optional — list channels for the user to pick from / sanity-check guild
+### Step 4: Optional, list channels for the user to pick from / sanity-check guild
 
 ```bash
 "$DCE_EXE" channels -t "$TOKEN" -g "$GUILD_ID"
 ```
 
-Outputs `<channel_id> | <category> / <channel_name>` lines. Save to `channels.txt` — the reorganize script needs it.
+Outputs `<channel_id> | <category> / <channel_name>` lines. Save to `channels.txt`, the reorganize script needs it.
 
 ### Step 5: Export
 
@@ -137,7 +137,7 @@ Outputs `<channel_id> | <category> / <channel_name>` lines. Save to `channels.tx
   -o "C:/path/to/DiscordChatExporter/exports/all_json/%t/%C [%c].json"
 ```
 
-Run sequentially, NOT in parallel processes — same user token making concurrent requests to the same endpoints raises rate-limit pressure faster than DCE can back off.
+Run sequentially, NOT in parallel processes, same user token making concurrent requests to the same endpoints raises rate-limit pressure faster than DCE can back off.
 
 Expected non-fatal errors: `Request to 'channels/<id>/messages?limit=1' failed: forbidden.` for channels the user cannot read. DCE skips them and continues. Note them for the final summary.
 
@@ -148,7 +148,7 @@ python skills/discord-history-export/scripts/reorganize.py \
   <raw_export_dir> <organized_output_dir> <channels.txt>
 ```
 
-The raw layout is keyed by Discord ID (a DCE quirk — see Critical Rule 3). The script:
+The raw layout is keyed by Discord ID (a DCE quirk, see Critical Rule 3). The script:
 - Detects whether each folder is a category or a channel-with-threads (by checking whether the folder ID matches a channel ID in `channels.txt`)
 - For category folders: copies main channel files up to `<category>/<channel>.html`
 - For channel-with-threads folders: copies into `<category>/<channel>_threads/<thread>.html`
@@ -184,31 +184,31 @@ Report to the user:
 
 These are the failure modes seen during the initial validation run. Each one cost a retry. The Critical Rules above encode the fixes; this section explains why.
 
-### G1 — `%t` is not category name (silent)
+### G1, `%t` is not category name (silent)
 
 Documentation calls `%t` a "thread/category" token. In practice, output folders are 18-digit Discord IDs, not names. There is no human-readable category template variable in DCE 2.47. **Always reorganize.**
 
-### G2 — Identical thread titles → file lock crash (fatal)
+### G2, Identical thread titles → file lock crash (fatal)
 
 DCE writes the channel file first, then opens it again for the message stream. When two threads in the same channel resolve to the same filename (because their titles are identical), the second open hits the first's lock and crashes the whole export, not just that file. **Always include `[%c]` in the filename template.**
 
-### G3 — Git Bash path → wrong drive (silent, 70 MB misplaced)
+### G3, Git Bash path → wrong drive (silent, 70 MB misplaced)
 
-`-o "/c/Users/foo/bar.json"` — bash leaves it untouched; the Windows .exe sees an absolute path starting with `/c/` and writes to `C:\c\Users\foo\bar.json`. **Pass `C:/...` or resolve with `$(cygpath -w "$path")` before invoking the .exe.**
+`-o "/c/Users/foo/bar.json"`, bash leaves it untouched; the Windows .exe sees an absolute path starting with `/c/` and writes to `C:\c\Users\foo\bar.json`. **Pass `C:/...` or resolve with `$(cygpath -w "$path")` before invoking the .exe.**
 
-### G4 — Forum channels look "empty" (informational)
+### G4, Forum channels look "empty" (informational)
 
 Channels like `help-forum`, `ideas`, `proposals` are Discord Forum channels. Their entire content lives in posts (= threads). With `--include-threads All` the threads ARE captured, but there is no main-channel file. The reorganized output shows `forum-channel_threads/` only. **Tell the user this is expected, not a bug.**
 
-### G5 — Forbidden channels (informational)
+### G5, Forbidden channels (informational)
 
 Channels with role-gated read perms (often `moderator-only`, `*-reviewers`, `*-area-chairs`, private categories) return `403 forbidden` even to a logged-in user lacking the role. **DCE skips them cleanly; list them in the summary so the user knows.**
 
-### G6 — Bot token ≠ user token (architectural)
+### G6, Bot token ≠ user token (architectural)
 
-If the user already has a Discord Bot configured (e.g. for DM relay), its token is NOT reusable here — Bots can only read channels they have been invited to. This skill needs the user-account token, captured via the browser flow in Step 3.
+If the user already has a Discord Bot configured (e.g. for DM relay), its token is NOT reusable here, Bots can only read channels they have been invited to. This skill needs the user-account token, captured via the browser flow in Step 3.
 
-### G7 — Token in transcript (security)
+### G7, Token in transcript (security)
 
 User tokens captured this way appear in the conversation transcript. They cannot be redacted post-hoc. Password rotation is the only mitigation. Tell the user in Step 8.
 
