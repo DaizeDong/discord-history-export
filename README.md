@@ -1,6 +1,6 @@
 # discord-history-export
 
-Export an entire Discord server — every channel, every thread — into local HTML (to read) and JSON (to analyze), in 5–10 minutes.
+Export an entire Discord server, every channel, every thread, into local HTML (to read) and JSON (to analyze), in 5 to 10 minutes.
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -12,11 +12,11 @@ Export an entire Discord server — every channel, every thread — into local H
 
 ---
 
-## ⭐ Read this first — the design philosophy
+## ⭐ Read this first, the design philosophy
 
 The exporter (Tyrrrz/DiscordChatExporter) already exists and is excellent. So why a skill?
 
-Because the naive CLI invocation fails in five non-obvious ways for a real multi-channel guild on Windows, and each failure looks like a bug rather than a misconfiguration. The value of this skill is not "it calls a tool" — it is **the encoded debrief of every way that tool quietly does the wrong thing**, plus the two pieces that are genuinely annoying to do by hand:
+Because the naive CLI invocation fails in five non-obvious ways for a real multi-channel guild on Windows, and each failure looks like a bug rather than a misconfiguration. The value of this skill is not "it calls a tool", it is **the encoded debrief of every way that tool quietly does the wrong thing**, plus the two pieces that are genuinely annoying to do by hand:
 
 - **Auth without DevTools.** Getting a Discord user token normally means opening DevTools, finding a request, and copy-pasting an `Authorization` header. This skill drives a headed browser via Playwright MCP: you log in once, pick the server visually, and it captures the token and guild ID for you.
 - **Output you can actually read.** DCE's default output is a tree of 18-digit Discord-ID folders. This skill reorganizes it into `<Category>/<channel>.html` so you can double-click and read.
@@ -56,18 +56,18 @@ What runs automatically:
 
 1. Confirms scope (whole guild vs single channel vs group DM) and surfaces the ToS risk in one sentence
 2. Downloads the latest [Tyrrrz/DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatExporter) self-contained CLI release (no .NET install needed)
-3. Opens a headed browser via Playwright MCP — **you log in once**, navigate to the target server, and say "OK"
-4. Captures your **user token** (iframe localStorage trick) and **guild ID** (URL second segment) — no DevTools, no copy-paste
+3. Opens a headed browser via Playwright MCP, **you log in once**, navigate to the target server, and say "OK"
+4. Captures your **user token** (iframe localStorage trick) and **guild ID** (URL second segment), no DevTools, no copy-paste
 5. Runs `exportguild` with `--include-threads All` and a collision-proof filename template
 6. Runs a Python reorganize step that turns DCE's Discord-ID folders into a human-readable `<Category>/<channel>.html` + `<Category>/<channel>_threads/` tree
 7. Reports total messages, top channels by volume, forbidden-channel skips, and forum-channel quirks
 8. Tells you to **change your Discord password** to invalidate the token that appeared in the transcript
 
-For a mid-sized guild (a few dozen channels, tens of thousands of messages), end-to-end runtime is roughly 5–10 minutes; outputs are on the order of 100 MB of HTML plus a comparable JSON dataset.
+For a mid-sized guild (a few dozen channels, tens of thousands of messages), end-to-end runtime is roughly 5 to 10 minutes; outputs are on the order of 100 MB of HTML plus a comparable JSON dataset.
 
 ## How to invoke
 
-Just describe the intent — the skill auto-activates on triggers like:
+Just describe the intent, the skill auto-activates on triggers like:
 
 - `export discord history`
 - `download my discord server`
@@ -136,7 +136,7 @@ See `skills/discord-history-export/SKILL.md` → "Gotchas Encountered" for the f
 
 ## Limitations
 
-**ToS reality check.** Discord's ToS forbids automating user accounts. This skill makes one HTTP request per page of messages, paced by DCE's rate-limit handler — risk to a normal account doing a one-off export is low but non-zero. Before any token is captured the skill surfaces this risk and offers the official alternative:
+**ToS reality check.** Discord's ToS forbids automating user accounts. This skill makes one HTTP request per page of messages, paced by DCE's rate-limit handler, risk to a normal account doing a one-off export is low but non-zero. Before any token is captured the skill surfaces this risk and offers the official alternative:
 
 - **Server admin?** Invite a Bot (ToS-compliant). Skill hands off, does not run.
 - **Group DM?** Skill aborts and points to Settings → Privacy & Safety → **Request my Data** for the GDPR export route.
@@ -148,7 +148,7 @@ See `skills/discord-history-export/SKILL.md` → "Gotchas Encountered" for the f
 - Playwright MCP plugin installed in Claude Code (provides the browser tools)
 - ~200 MB free disk for the DCE binary + per-guild exports
 
-No .NET install required — DCE ships a self-contained binary.
+No .NET install required, DCE ships a self-contained binary.
 
 ## Languages
 

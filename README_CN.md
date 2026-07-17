@@ -1,6 +1,6 @@
 # discord-history-export
 
-把整个 Discord 服务器（每个频道、每个 thread）导出到本地 HTML（给你看）和 JSON（给分析用），5–10 分钟跑完。
+把整个 Discord 服务器（每个频道、每个 thread）导出到本地 HTML（给你看）和 JSON（给分析用），5 to 10 分钟跑完。
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -12,16 +12,16 @@
 
 ---
 
-## ⭐ 先读这个 —— 设计理念
+## ⭐ 先读这个, 设计理念
 
 导出工具（Tyrrrz/DiscordChatExporter）本身已经存在且很优秀。那为什么还要做一个 skill？
 
-因为对一个真实的多频道 Windows 服务器来说，朴素的 CLI 调用有五个非显然的失败方式，而每个失败看起来都像 bug，而不是配置问题。这个 skill 的价值不在于"它调了个工具"——而在于**它把那个工具悄悄做错事的每一种方式都固化成了复盘**，再加上两件手动做起来确实很烦的事：
+因为对一个真实的多频道 Windows 服务器来说，朴素的 CLI 调用有五个非显然的失败方式，而每个失败看起来都像 bug，而不是配置问题。这个 skill 的价值不在于"它调了个工具",而在于**它把那个工具悄悄做错事的每一种方式都固化成了复盘**，再加上两件手动做起来确实很烦的事：
 
 - **不用 DevTools 拿 token。** 正常拿 Discord user token 要打开 DevTools、找一个请求、复制粘贴 `Authorization` header。这个 skill 用 Playwright MCP 开一个有界面的浏览器：你只登录一次、可视化选服务器，它替你抓 token 和 guild ID。
 - **真正能读的产物。** DCE 默认输出是一堆 18 位 Discord ID 文件夹。这个 skill 把它重组成 `<分类>/<频道>.html`，双击就能看。
 
-它还**默认对风险诚实**。Discord 服务条款禁止自动化用户账号。skill 会在抓任何 token *之前* 用一句话讲清这点，给管理员提供合规的 Bot 路径，并在结尾提醒你改密码——因为你的 token 出现在了对话记录里。理念是：把又难又繁的部分替用户做掉，但绝不隐藏权衡。
+它还**默认对风险诚实**。Discord 服务条款禁止自动化用户账号。skill 会在抓任何 token *之前* 用一句话讲清这点，给管理员提供合规的 Bot 路径，并在结尾提醒你改密码,因为你的 token 出现在了对话记录里。理念是：把又难又繁的部分替用户做掉，但绝不隐藏权衡。
 
 ## 定位与边界
 
@@ -56,18 +56,18 @@ git clone https://github.com/DaizeDong/discord-history-export.git \
 
 1. 确认范围（整个服务器 / 单频道 / Group DM）并用一句话提示 Discord ToS 风险
 2. 下载最新的 [Tyrrrz/DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatExporter) CLI（self-contained，不需要装 .NET）
-3. 用 Playwright MCP 打开有界面的浏览器 —— **你只登录一次**，切到目标频道，回一句"好了"
+3. 用 Playwright MCP 打开有界面的浏览器, **你只登录一次**，切到目标频道，回一句"好了"
 4. 自动抓取你的 **user token**（iframe localStorage 绕过 Discord 的清除机制）和 **guild ID**（URL 第二段），不需要打开 DevTools 也不需要你复制粘贴
 5. 用 `exportguild` + `--include-threads All` + 防撞名的文件名模板做全量导出
 6. 跑 Python 重组脚本：把 DCE 默认输出的"一堆 Discord ID 文件夹"翻译成可读的 `<分类>/<频道>.html` + `<分类>/<频道>_threads/` 树
 7. 汇报总消息数、热门频道、被 Discord 拒访的频道、forum 频道的特殊结构
 8. 提醒你：**立即改一次 Discord 密码** 作废刚刚出现在对话里的 token
 
-几十个频道、数万条消息规模下，端到端跑完约 5–10 分钟；产出约 100 MB 级别的 HTML，外加体量相当的 JSON。
+几十个频道、数万条消息规模下，端到端跑完约 5 to 10 分钟；产出约 100 MB 级别的 HTML，外加体量相当的 JSON。
 
 ## 如何触发
 
-直接描述意图即可 —— skill 会在以下触发词出现时自动激活：
+直接描述意图即可, skill 会在以下触发词出现时自动激活：
 
 - `export discord history`
 - `download my discord server`
@@ -148,7 +148,7 @@ exports/
 - Claude Code 装了 Playwright MCP 插件（提供浏览器控制工具）
 - 约 200 MB 空闲磁盘（DCE 二进制 + 每个服务器的导出）
 
-**不需要装 .NET** —— DCE 直接发布 self-contained 二进制。
+**不需要装 .NET**, DCE 直接发布 self-contained 二进制。
 
 ## 语言
 
