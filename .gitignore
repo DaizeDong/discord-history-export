@@ -47,6 +47,8 @@ organized_json/
 *.json
 !.claude-plugin/plugin.json
 !skills/**/*.json
+# the data-boundary manifest must be tracked, or the gate is a silent no-op on CI/fresh clones
+!.dataclass.json
 channels.txt
 config.json
 token*.txt
