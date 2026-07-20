@@ -55,6 +55,19 @@ def strip_id(name: str) -> str:
     return f"{m.group(1)}{m.group(2)}" if m else name
 
 
+def _copy(src: Path, dst: Path) -> None:
+    """Copy a file, or a media asset folder recursively.
+
+    DCE's `--media` variant writes per-export `<name>_Files/` directories alongside the .html
+    files in the same %t folder; a bare shutil.copy2 on a directory raises IsADirectoryError
+    (POSIX) / PermissionError (Windows) and aborts the whole reorganize, so handle dirs.
+    """
+    if src.is_dir():
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+    else:
+        shutil.copy2(src, dst)
+
+
 def main(src_root: Path, dst_root: Path, channels_txt: Path) -> None:
     chan = parse_channels(channels_txt)
     dst_root.mkdir(parents=True, exist_ok=True)
@@ -73,7 +86,7 @@ def main(src_root: Path, dst_root: Path, channels_txt: Path) -> None:
             target = dst_root / slug(cat or "_root_channels") / f"{slug(ch)}_threads"
             target.mkdir(parents=True, exist_ok=True)
             for f in files:
-                shutil.copy2(f, target / f.name)
+                _copy(f, target / f.name)
             summary.append((cat, ch, "threads", len(files), str(target.relative_to(dst_root))))
             continue
 
@@ -86,14 +99,14 @@ def main(src_root: Path, dst_root: Path, channels_txt: Path) -> None:
             target = dst_root / "_unknown" / folder.name
             target.mkdir(parents=True, exist_ok=True)
             for f in files:
-                shutil.copy2(f, target / f.name)
+                _copy(f, target / f.name)
             summary.append(("?", "?", "unknown", len(files), str(target.relative_to(dst_root))))
             continue
 
         target_dir = dst_root / slug(cat_for_files or "_root_channels")
         target_dir.mkdir(parents=True, exist_ok=True)
         for f in files:
-            shutil.copy2(f, target_dir / strip_id(f.name))
+            _copy(f, target_dir / strip_id(f.name))
         summary.append((cat_for_files, "(category)", "main", len(files), str(target_dir.relative_to(dst_root))))
 
     with (dst_root / "INDEX.md").open("w", encoding="utf-8") as fh:
