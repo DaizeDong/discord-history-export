@@ -1,5 +1,5 @@
 ---
-name: Discord History Export
+name: discord-history-export
 description: "Use to export a joined Discord server's history to HTML+JSON via DiscordChatExporter. Triggers: export discord history, archive discord chat, 导出 discord 频道, 拉 discord 群组."
 ---
 
