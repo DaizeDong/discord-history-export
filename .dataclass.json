@@ -15,8 +15,14 @@
     "",
     "Enforced by tools/data_boundary.py in .githooks and in CI."
   ],
-  "_audited": "2026-07-13 -- swept for real-run output written back into this repo (every open(...,'a'), json.dump, write_text; every tracked *.jsonl / state / cache / report). This skill's writers all resolve OUTSIDE the repo, or it has no writers. No DATA-class path found. An empty list here is a CONCLUSION, not a default: it distinguishes 'audited, nothing to declare' from 'nobody has looked'.",
-  "data": [],
+  "_audited": "2026-07-31 RE-AUDIT (supersedes the 2026-07-13 sweep, which recorded an empty declaration for this repo). The earlier sweep asked only whether shipped code appends to a TRACKED file here. That question is too narrow: it clears every path that is gitignored, and .gitignore is advisory -- `git add -f` walks straight through it, which is the whole reason declarations exist. This pass asked instead whether shipped code or shipped docs can put REAL-RUN OUTPUT at a repo-relative path at all. ANSWER: YES, and this is the highest-stakes case in the fleet -- the output is a person's entire Discord history, verbatim, including DMs and forum threads. SKILL.md documents the layout exports/ -> all/, all_json/, organized/, organized_json/ and this repo's .gitignore already names every one of those directories, so somebody foresaw them landing here and then relied on an advisory file to stop it. They are now DECLARED, which makes the seal enforceable. All five are directory-form and therefore owe no .example: there is no single shape to publish for a whole export tree. The exporter writes wherever its -o flag points, so a tripwire at the repo-relative landing site is the only control that does not depend on someone remembering to point it elsewhere.",
+  "data": [
+    "exports/",
+    "all/",
+    "all_json/",
+    "organized/",
+    "organized_json/"
+  ],
   "data_sealed": [],
   "fixture": [],
   "_data_home": "~/.discord-history-export-config/data/   (override with $DISCORD_HISTORY_EXPORT_DATA_DIR). If this skill ever needs to record real-run output, it goes THERE -- never back into this repo."
