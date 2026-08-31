@@ -83,8 +83,12 @@ You can also drive [DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatEx
 
 DCE_EXE="path/to/DiscordChatExporter.Cli.exe"
 
+# Everything below writes to the PRIVATE COMPANION, never into this repo. See COMPANION.md.
+# An export is a whole server history including DMs, and this repo is public.
+OUT="$(python tools/datadir.py discord-history-export --create)"
+
 # list channels (sanity check, also feeds reorganize.py)
-"$DCE_EXE" channels -t "$TOKEN" -g "$GUILD_ID" > channels.txt
+"$DCE_EXE" channels -t "$TOKEN" -g "$GUILD_ID" > "$OUT/channels.txt"
 
 # export everything
 "$DCE_EXE" exportguild \
@@ -93,11 +97,11 @@ DCE_EXE="path/to/DiscordChatExporter.Cli.exe"
   -f HtmlDark \
   --include-threads All \
   --parallel 4 \
-  -o "exports/all/%t/%C [%c].html"
+  -o "$OUT/exports/all/%t/%C [%c].html"
 
 # reorganize into readable folders
 python skills/discord-history-export/scripts/reorganize.py \
-  exports/all exports/organized channels.txt
+  "$OUT/exports/all" "$OUT/exports/organized" "$OUT/channels.txt"
 ```
 
 ## Example output
