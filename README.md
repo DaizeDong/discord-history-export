@@ -83,7 +83,7 @@ You can also drive [DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatEx
 
 DCE_EXE="path/to/DiscordChatExporter.Cli.exe"
 
-# Everything below writes to the PRIVATE COMPANION, never into this repo. See COMPANION.md.
+# Everything below writes to the PRIVATE COMPANION, never into this repo. See guards/COMPANION.md.
 # An export is a whole server history including DMs, and this repo is public.
 OUT="$(python tools/datadir.py discord-history-export --create)"
 
