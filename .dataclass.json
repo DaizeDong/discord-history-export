@@ -9,7 +9,7 @@
     "          NOT lifelike and does not need a generator; the risk it guards against is a person",
     "          reaching for a convenient REAL example, and there is no temptation to reach for a",
     "          real value that would look obviously wrong next to FAKE_CANARY_XYZ.)",
-    "DATA    = anything a REAL RUN produced. Never git-tracked. Lives in the private companion",
+    "DATA    = anything a REAL RUN produced. Versioned only in the private companion",
     "          config, resolved at runtime by tools/datadir.py. This repo ships only the schema.",
     "data_sealed = a path that HELD real data, was purged, and must stay dead.",
     "",
@@ -21,9 +21,10 @@
     "all/",
     "all_json/",
     "organized/",
-    "organized_json/"
+    "organized_json/",
+    "runs/"
   ],
   "data_sealed": [],
-  "fixture": [],
-  "_data_home": "~/.discord-history-export-config/data/   (override with $DISCORD_HISTORY_EXPORT_DATA_DIR). If this skill ever needs to record real-run output, it goes THERE -- never back into this repo."
+  "fixture": ["tests/fixtures/catalog.json", "tests/fixtures/example.md"],
+  "_data_home": "Resolved by guards/tools/datadir.py, with DISCORD_HISTORY_EXPORT_DATA_DIR override. The helper verifies the real enclosing PRIVATE Git companion before writing; real output remains versioned there, never in this source tree."
 }

@@ -1,0 +1,104 @@
+{
+  "ids": {
+    "guild": "700000000000000001",
+    "category": "700000000000000002",
+    "other_category": "700000000000000003",
+    "channel": "700000000000000004",
+    "other_channel": "700000000000000005",
+    "thread": "700000000000000006",
+    "other_thread": "700000000000000007"
+  },
+  "credential": "SYNTHETIC_CREDENTIAL_DO_NOT_USE",
+  "channels": "700000000000000004 | Acme / general\n700000000000000005 | Acme / GENERAL\n",
+  "message": {
+    "id": "700000000000000099",
+    "content": "Synthetic Acme fixture",
+    "attachments": []
+  },
+  "data_selections": [
+    {
+      "kind": "private-normal",
+      "exists": true,
+      "allowed": true,
+      "repository": "AcmeOrg/synthetic-private-normal-config"
+    },
+    {
+      "kind": "private-normal",
+      "exists": false,
+      "allowed": true,
+      "repository": "AcmeOrg/synthetic-private-normal-config"
+    },
+    {
+      "kind": "private-linked",
+      "exists": true,
+      "allowed": true,
+      "repository": "AcmeOrg/synthetic-private-linked-config"
+    },
+    {
+      "kind": "private-linked",
+      "exists": false,
+      "allowed": true,
+      "repository": "AcmeOrg/synthetic-private-linked-config"
+    },
+    {
+      "kind": "own-source",
+      "exists": true,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-own-source-config"
+    },
+    {
+      "kind": "own-source",
+      "exists": false,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-own-source-config"
+    },
+    {
+      "kind": "public",
+      "exists": true,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-public-config"
+    },
+    {
+      "kind": "public",
+      "exists": false,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-public-config"
+    },
+    {
+      "kind": "unknown",
+      "exists": true,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-unknown-config"
+    },
+    {
+      "kind": "unknown",
+      "exists": false,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-unknown-config"
+    },
+    {
+      "kind": "unversioned",
+      "exists": true,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-unversioned-config"
+    },
+    {
+      "kind": "unversioned",
+      "exists": false,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-unversioned-config"
+    },
+    {
+      "kind": "file",
+      "exists": true,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-file-config"
+    },
+    {
+      "kind": "file",
+      "exists": false,
+      "allowed": false,
+      "repository": "AcmeOrg/synthetic-file-config"
+    }
+  ]
+}
