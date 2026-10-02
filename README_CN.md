@@ -1,158 +1,87 @@
 # discord-history-export
 
-把整个 Discord 服务器（每个频道、每个 thread）导出到本地 HTML（给你看）和 JSON（给分析用），5 to 10 分钟跑完。
+把获授权的 Discord 历史导出为经过校验的 HTML 和 JSON，保存在私有 Git 伴生仓里。
 
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![基于 DiscordChatExporter](https://img.shields.io/badge/%E5%9F%BA%E4%BA%8E-DiscordChatExporter-green?style=flat)](https://github.com/Tyrrrz/DiscordChatExporter)
-[![语言](https://img.shields.io/badge/%E8%AF%AD%E8%A8%80-EN%20%2F%20CN-blue?style=flat)](#语言)
+[![DiscordChatExporter](https://img.shields.io/badge/Engine-DiscordChatExporter-green?style=flat)](https://github.com/Tyrrrz/DiscordChatExporter)
+[![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#语言)
 [![Roadmap](https://img.shields.io/badge/Roadmap-v0.1.0-purple?style=flat)](ROADMAP.md)
 
 [English](README.md) | [中文版](README_CN.md)
 
----
+## ⭐ 先读设计理念
 
-## ⭐ 先读这个, 设计理念
+一份存档得说得清文件来自哪个频道，也得过段时间还能打开。DiscordChatExporter 负责访问 Discord；这个 skill 负责本地处理：凭据只传入子进程环境，真实产物只写到确认过的私有 Git 仓库，每个文件都记录频道 ID、字节数和校验和。
 
-导出工具（Tyrrrz/DiscordChatExporter）本身已经存在且很优秀。那为什么还要做一个 skill？
+名称方便人查找，身份由 ID 决定。整理脚本保留导出工具生成的 ID 目录和文件名，同名频道、同名 thread 不会合并，相对媒体链接也能继续使用。索引列出每份 HTML 和 JSON；清单还记录频道显示名称与容器 ID。详见 [PHILOSOPHY.md](PHILOSOPHY.md)。
 
-因为对一个真实的多频道 Windows 服务器来说，朴素的 CLI 调用有五个非显然的失败方式，而每个失败看起来都像 bug，而不是配置问题。这个 skill 的价值不在于"它调了个工具",而在于**它把那个工具悄悄做错事的每一种方式都固化成了复盘**，再加上两件手动做起来确实很烦的事：
+## 适用范围
 
-- **不用 DevTools 拿 token。** 正常拿 Discord user token 要打开 DevTools、找一个请求、复制粘贴 `Authorization` header。这个 skill 用 Playwright MCP 开一个有界面的浏览器：你只登录一次、可视化选服务器，它替你抓 token 和 guild ID。
-- **真正能读的产物。** DCE 默认输出是一堆 18 位 Discord ID 文件夹。这个 skill 把它重组成 `<分类>/<频道>.html`，双击就能看。
+使用获授权的 Bot 凭据。服务器应由你管理，或其管理员已允许该 Bot 访问指定频道。可以选一个服务器或一个频道，指定 ISO 日期范围，也可以下载媒体文件。服务器导出包含 threads。脚本依次导出 HTML 和 JSON，只有两种格式的频道 ID 集合一致，才会报告完成。
 
-它还**默认对风险诚实**。Discord 服务条款禁止自动化用户账号。skill 会在抓任何 token *之前* 用一句话讲清这点，给管理员提供合规的 Bot 路径，并在结尾提醒你改密码,因为你的 token 出现在了对话记录里。理念是：把又难又繁的部分替用户做掉，但绝不隐藏权衡。
-
-## 定位与边界
-
-**它是** 一个一次性归档工具：指向一个你已加入的服务器，拿回一份完整、可读的 HTML 镜像，外加一份结构平行的 JSON 数据集供分析，按 category / channel 归组，thread 放在子目录里。
-
-**它不是** 持续同步、不是 Discord bot、不是监控工具、也不是读取你本来读不到的服务器的办法。它只导出你自己账号本来就能看到的内容，一次。遇到 Group DM 会直接中止，指给你 Discord 官方的 GDPR "请求我的数据" 导出。
+这是一次性归档工具，不做持续监控，也无法读取 Bot 无权访问的内容。个人账号数据或 Group DM 请使用 Discord 官方的 **请求我的数据** 功能。
 
 ## 安装
 
-```
-/plugin install github:DaizeDong/discord-history-export
-```
-
-或手动 clone 到 Claude 插件目录：
+通过支持的插件管理器安装，或完整克隆仓库：
 
 ```bash
-git clone https://github.com/DaizeDong/discord-history-export.git \
-  ~/.claude/plugins/discord-history-export
+git clone --recurse-submodules https://github.com/DaizeDong/discord-history-export.git
 ```
 
-技能会在以下短语出现时自动触发：`export discord history`、`download my discord server`、`archive discord chat`、`导出 discord 群组`、`拉 discord 频道历史` 等。
+已有克隆需运行 `git submodule update --init --recursive`。缺少 guards 子模块会直接报错。环境需要 Python 3.10+、Git、已登录的 GitHub CLI (`gh`)，以及支持的 [DiscordChatExporter CLI 版本](https://github.com/Tyrrrz/DiscordChatExporter/releases)。脚本会先检查指定程序的版本和导出命令帮助，再读取凭据；不会自动下载或安装导出工具。
 
-## 60 秒概览
+## 私有 DATA 与凭据
 
-你说：
+新建或使用一个独立的 **PRIVATE GitHub 仓库**，克隆到本机，把 `DISCORD_HISTORY_EXPORT_DATA_DIR` 指向其中的数据目录。子目录可以尚未创建；脚本会先确认所属工作树是私有仓，再在执行时创建。明确设置 DATA 路径后，脚本就以它为准：空值、无效路径或不允许的目标会直接失败，不会改用另一个伴生仓。未设置 DATA 路径时，脚本使用[共享解析器](guards/COMPANION.md)查找目录。写入前还会检查工作树及 origin，并用 `gh repo view` 查询当前可见性。普通仓库和 linked worktree 都支持。公开仓、可见性未知、没有版本管理的目录，以及工具自己的源码目录都会被拒绝。
 
+所有已配置 remote 的实际 fetch 和 push 地址都必须对应 PRIVATE GitHub 仓库，检查包括 URL 改写和指定的发布 remote。自定义传输命令、Git 路由环境变量和 TLS 信任设置会被拒绝。随附的共享 HTTP 策略逐条检查配置，包括限定 URL 的配置和空值重置前的值；允许开启证书验证和受支持的性能选项。每次目标验证都使用同一份经过检查的环境快照。请使用标准的 `https://github.com/OWNER/REPOSITORY.git` 地址。随附的共享静态 SSH 检查器也支持标准 `git@github.com` 地址，前提是能识别客户端，并证明其使用标准路由和默认信任设置。检查器缺失、配置不受支持或使用 SSH 别名时，会提示改用 HTTPS。检查过程不会启动 SSH。
+
+预览、执行、重试和已完成任务的复验都会先检查所选运行目录及其中已有的嵌套仓库，再读取凭据、探测导出程序或写文件。公开或无法确认可见性的嵌套仓库会被拒绝。私有 linked worktree 仍可使用；Git 管理文件不计入归档清单。
+
+Bot 凭据放在本机环境变量中，或放在公开源码目录之外的本地文件里。`--credential-ref` 只接收 `env:VARIABLE_NAME` 或 `file:ABSOLUTE_PATH`。凭据文件应只允许所有者读取，并排除在版本管理之外。不要把凭据值发到助手对话或写进命令行。脚本仅在执行时读取值，通过子进程的 `DISCORD_TOKEN` 环境变量传给导出工具。stdout/stderr 由脚本捕获，失败时不会回显或记录原始输出；保存频道列表前会移除其中的凭据值。
+
+目前有源码依据的环境变量传递版本是 **2.47**。帮助文本不必写出该环境变量，绑定关系由对应 tag 的源码证明。未知版本需要在导出命令帮助里明确支持同一环境变量，否则预检失败。详见[凭据传递依据](skills/discord-history-export/reference/credential-transport.md)。
+
+## 预览与执行
+
+把 `$SkillDir` 指向安装位置下的 `skills/discord-history-export`，把 `$Exporter` 指向已有导出程序。参考[生成的合成示例](tests/fixtures/example.md)，在本机换成获授权的范围。`plan` 检查参数和私有输出位置，显示本次范围与命令，不读取凭据，也不写出产物。把 `plan` 改成 `execute` 后执行。
+
+两种操作都接受 `--guild-id` 或 `--channel-id`、`--after`、`--before`、`--media` 和 `--resume`。日期使用 ISO 格式，`--run-id` 必须是单个安全文件名。资源按脚本实际源码位置解析，所以可以从任意当前目录调用。
+
+产物写入 `<private-data-dir>/runs/<run-id>`。`run.json` 固定本次范围、日期、媒体选项、导出程序和凭据引用。每次尝试各自保留原始文件、整理后的存档、索引和清单。运行目录的 `manifest.json` 记录相对文件路径、校验和、大小、从 JSON 实际消息列表算出的数量，以及完整文件目录。
+
+已完成的同参数调用会校验现有文件，确认一致后返回，不再启动导出工具。部分完成或失败时退出码非零，并说明原因。用相同参数加上 `--resume` 可在新的尝试目录重试，之前的文件保留。修改参数或已有产物后，脚本会拒绝复用该 run ID。重试会重新导出两种格式，不会从某一条 Discord 消息接着下载。
+
+扫描目录时遇到权限或 I/O 错误，源文件检查、目标位置检查和已完成任务的复验都会停止。恢复访问后再重试。无法记录完整文件清单时，已有文件和上次保存的清单会保留；如果重试时无法核对这次未完成的尝试，请按报错指引保留原任务，改用新的 run ID。
+
+HTML 校验依据 [DiscordChatExporter 2.47 模板](https://github.com/Tyrrrz/DiscordChatExporter/blob/2.47/DiscordChatExporter.Core/Exporting/PreambleTemplate.cshtml)：文件需要 HTML5 doctype，依次包含已经闭合、处于同一层级的 `preamble`、`chatlog` 和 `postamble` 区域，并在 postamble 中包含 `Exported N message(s)` 完成记录。chatlog 可以为空，零消息频道的完整导出仍然有效；数字分组格式及可省略的 `html`、`body` 结束标签也受支持。零字节文件、纯文本报错、普通服务错误页或缺少完成记录的文档会被拒绝。文本元素中的标签不会被当作归档结构；非空元素的自闭合写法会被拒绝。CSS 链接支持标识符和值中的转义。这里检查的是导出文档结构，消息数量仍从 JSON 的消息列表计算。
+
+整理存档、确认导出完成和复用已完成任务时，都会执行同一套内容校验。旧任务即使标为 complete，只要 HTML 不符合上述要求，就需要保留原任务，用新的 run ID 重新导出。`--resume` 用于部分完成或失败的任务，会保留之前各次尝试，不会覆盖已完成任务的证据。
+
+存档需要能直接从本地打开。`//example.com/image.png` 这类省略协议的地址会继承 `file:`，因此会被拒绝；远程资源请使用明确的 `https://` 或 `http://` 地址。当前不支持会改变文档基准地址的 HTML `<base href>`，即使值为空也会报错。请从导出源移除它，让相对链接按文件所在目录解析。不带 `href` 的 `<base>`，以及惰性 template 内容中的 `<base>`，不会改变文档基准地址。
+
+## 整理已有导出
+
+原来的位置参数接口仍可使用：
+
+```powershell
+python "$SkillDir/scripts/reorganize.py" "$RawDir" "$OrganizedDir" "$ChannelsTxt"
 ```
-帮我导出我加入的那个 Discord 服务器全部历史
-```
 
-自动执行的流程：
+`$ChannelsTxt` 是已有的 DCE 频道列表。`$OrganizedDir` 必须位于确认过的私有伴生仓。输入文件名保留 `[%c]`；DCE 的 `%t` 对普通频道表示分类 ID，对 thread 表示父频道 ID。JSON 也可以通过 `channel.id` 提供身份。整理单一格式的已有存档可以算完成；完整导出则必须同时有两种格式。
 
-1. 确认范围（整个服务器 / 单频道 / Group DM）并用一句话提示 Discord ToS 风险
-2. 下载最新的 [Tyrrrz/DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatExporter) CLI（self-contained，不需要装 .NET）
-3. 用 Playwright MCP 打开有界面的浏览器, **你只登录一次**，切到目标频道，回一句"好了"
-4. 自动抓取你的 **user token**（iframe localStorage 绕过 Discord 的清除机制）和 **guild ID**（URL 第二段），不需要打开 DevTools 也不需要你复制粘贴
-5. 用 `exportguild` + `--include-threads All` + 防撞名的文件名模板做全量导出
-6. 跑 Python 重组脚本：把 DCE 默认输出的"一堆 Discord ID 文件夹"翻译成可读的 `<分类>/<频道>.html` + `<分类>/<频道>_threads/` 树
-7. 汇报总消息数、热门频道、被 Discord 拒访的频道、forum 频道的特殊结构
-8. 提醒你：**立即改一次 Discord 密码** 作废刚刚出现在对话里的 token
+整理脚本会在复制前检查全部源文件和目标文件；同时提供两种格式时，频道 ID 集合必须一致。脚本保留原始字节与嵌套媒体，检查本地链接。已有内容冲突或源目录改变都会被拒绝。相同输入重复运行不会改变结果，也不会通过覆盖文件解决重名问题。
 
-几十个频道、数万条消息规模下，端到端跑完约 5 to 10 分钟；产出约 100 MB 级别的 HTML，外加体量相当的 JSON。
-
-## 如何触发
-
-直接描述意图即可, skill 会在以下触发词出现时自动激活：
-
-- `export discord history`
-- `download my discord server`
-- `archive discord chat`
-- `save my discord messages`
-- `导出 discord 群组` / `拉 discord 频道历史` / `discord 历史归档`
-
-你也可以不用 skill，直接调 [DiscordChatExporter](https://github.com/Tyrrrz/DiscordChatExporter)：
+## 验证与限制
 
 ```bash
-# 1. 在 Discord 浏览器 DevTools → Network → 任意 /api 请求 → Authorization header 取 token
-# 2. URL 第二段就是 guild ID: discord.com/channels/<GUILD_ID>/<channel_id>
-
-DCE_EXE="path/to/DiscordChatExporter.Cli.exe"
-
-# Everything below writes to the PRIVATE COMPANION, never into this repo. See guards/COMPANION.md.
-# An export is a whole server history including DMs, and this repo is public.
-OUT="$(python tools/datadir.py discord-history-export --create)"
-
-# 列频道（顺便检查权限 + 给重组脚本用）
-"$DCE_EXE" channels -t "$TOKEN" -g "$GUILD_ID" > "$OUT/channels.txt"
-
-# 全量导出
-"$DCE_EXE" exportguild \
-  -t "$TOKEN" \
-  -g "$GUILD_ID" \
-  -f HtmlDark \
-  --include-threads All \
-  --parallel 4 \
-  -o "$OUT/exports/all/%t/%C [%c].html"
-
-# 重组成可读结构
-python skills/discord-history-export/scripts/reorganize.py \
-  "$OUT/exports/all" "$OUT/exports/organized" "$OUT/channels.txt"
+python tools/make_fixtures.py
+python -m pytest tests -q
 ```
 
-## 示例输出
-
-```
-exports/
-├── organized/                  ← HTML，双击任意文件即可浏览器查看
-│   ├── INDEX.md                ← 目录映射 + 文件/消息计数
-│   ├── General/
-│   │   ├── general.html
-│   │   ├── help-forum_threads/  ← forum 频道：只有 threads
-│   │   └── ...
-│   ├── Discussion/
-│   │   ├── channel-1.html
-│   │   ├── channel-1_threads/
-│   │   └── ...
-│   └── ...
-├── organized_json/             ← 同样结构的 JSON 版，给分析用
-├── all/, all_json/             ← DCE 的原始输出（按 Discord ID 命名）
-└── channels.txt                ← 服务器频道列表（重组脚本会用）
-```
-
-### 为什么这事不是直接调 CLI 完事
-
-对一个多频道的 Windows 用户来说，DCE 的朴素调用有五个非显然的坑，每个都会让导出失败或产物不可用。这个 skill 把每个坑的修复都固化在流程里：
-
-| 坑 | 表现 | skill 里的对策 |
-|---|---|---|
-| `%t` 不是 category 名 | 输出文件夹全是 18 位 Discord ID | `scripts/reorganize.py` 做 ID → 名映射 |
-| 同名 thread | 整个导出在中途因 Windows `FileShare` 锁崩溃 | 文件名模板永远带 `[%c]` |
-| Git Bash `/c/...` 路径 | 70 MB 静默写到 `C:\c\Users\...` 错误位置 | 一律传 Windows 风格 `C:/...` |
-| Forum 频道看起来"空" | `help-forum.html` 之类的找不到 | 在汇报里说明这是 Forum 频道，内容在 threads/ 子目录里 |
-| 无权限频道 | 中途报错像是崩了 | 收尾汇报里专门列出来，不当失败 |
-
-完整复盘见 `skills/discord-history-export/SKILL.md` 的 "Gotchas Encountered" 一节。
-
-## 限制
-
-**ToS 风险提示。** Discord 服务条款禁止自动化"用户账号"操作（俗称 self-bot），即使是你手动也能做的动作。这个 skill 走的是"一页消息一个 HTTP 请求"的低速节奏，DCE 内置了 rate-limit 处理；对一个普通账号做一次性导出，被封号的实际风险低但非零。在抓 token 之前 skill 会先把这点告诉用户，并主动给出官方替代路径：
-
-- **你是服务器管理员**？请邀请一个 Bot（完全合规）。skill 会停下、把后续操作交给你。
-- **目标是 Group DM**？skill 会直接中止，指给你 Discord 官方的 GDPR 数据导出入口：设置 → 隐私与安全 → **请求我的数据**。
-
-**环境要求：**
-
-- Windows / macOS / Linux（skill 默认 Windows x64，其他系统换一下 DCE 的 release 名即可）
-- `git`、`python` (3.8+)、`curl`、`unzip`
-- Claude Code 装了 Playwright MCP 插件（提供浏览器控制工具）
-- 约 200 MB 空闲磁盘（DCE 二进制 + 每个服务器的导出）
-
-**不需要装 .NET**, DCE 直接发布 self-contained 二进制。
+离线测试使用生成的合成 Discord 记录，拦截导出程序、Git 和 GitHub CLI 调用，检查凭据、输出边界、媒体完整性、重试和完整安装目录别名。这只能证明离线行为，不能证明真实 Discord 权限、所有平台上的导出程序兼容性、插件目录激活或无人值守运行。仍为远程 URL 的媒体需要网络访问；需要下载附件时请加 `--media`。导出程序报错不会被当作成功。
 
 ## 语言
 
@@ -160,4 +89,4 @@ English (`README.md`) · 中文 (`README_CN.md`)
 
 ## Roadmap · 更新日志 · License
 
-见 [ROADMAP.md](ROADMAP.md) · [CHANGELOG.md](CHANGELOG.md) · [LICENSE](LICENSE)（MIT）。
+见 [ROADMAP.md](ROADMAP.md)、[CHANGELOG.md](CHANGELOG.md) 和 [LICENSE](LICENSE)（MIT）。

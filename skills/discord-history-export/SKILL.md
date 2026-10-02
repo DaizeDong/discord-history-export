@@ -1,243 +1,45 @@
 ---
 name: discord-history-export
-description: "Use to export a joined Discord server's history to HTML+JSON via DiscordChatExporter. Triggers: export discord history, archive discord chat, 导出 discord 频道, 拉 discord 群组."
+description: "Export authorized Discord guild or channel history to verified HTML and JSON in private storage. Use for Discord history export, chat archives, or 导出 Discord 历史."
 ---
 
-# Discord History Export
+# Discord history export
 
-> **Caveat (ToS)**: Discord's Terms of Service forbid automating user accounts ("self-botting"), even for actions the user could perform by hand. The exporter sends one HTTP request per `before=` page, paced by DCE's built-in rate-limit handler, risk to a normal account doing a one-off export is low but non-zero. The skill must surface this to the user before any token is captured, and must offer the GDPR data-export route as an alternative.
-> **Caveat (token)**: The user's token grants full account access (DMs, settings, payments). It appears in the conversation transcript during this skill. After export, instruct the user to change their Discord password, this invalidates the token immediately.
+Use an authorized bot credential for a server the user administers or whose administrator has granted that bot access. For personal account data or Group DMs, use Discord's official Request my Data route. Only export the scope the user has authorized.
 
-## When To Use
+## Local setup
 
-- User has joined a Discord server and wants a local copy of every channel they can read
-- User wants ONE specific channel exported (skip the guild-wide walk; use the `export` subcommand instead of `exportguild`)
-- User wants a JSON dataset to grep / analyze / feed into another LLM
-- User wants an HTML archive that renders identically to Discord (avatars, attachments, replies, emoji)
+The complete source tree requires its guards submodule. Read [reference/credential-transport.md](reference/credential-transport.md) for supported exporter evidence. Python 3.10+, Git, authenticated `gh`, and an existing DiscordChatExporter CLI executable are required. Do not download or install an exporter as part of an export request without the user's authorization.
 
-## When NOT To Use
+Resolve the installed skill directory before invoking `scripts/export_history.py`. Paths in commands must be absolute when running from an unrelated current directory. The helper discovers the canonical source tree itself, including through an installed alias.
 
-- Target is a **Group DM** (multi-person private chat), Discord blocks Bot accounts from joining and self-bot detection is denser here. Use the official GDPR data export instead: Settings → Privacy & Safety → Request my Data.
-- User is a **server administrator** and willing to invite a Bot, that path is ToS-compliant. Hand off to the user, do not run this skill.
-- User wants **real-time monitoring**, DCE is one-shot. For polling DMs see `~/your-tool-dir/`.
-- Only a **single channel snapshot of <200 messages** is needed, call the Discord API directly with `requests`, faster than installing DCE.
+Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to a directory in a separate private Git companion. An explicit DATA selection is authoritative; invalid or empty values fail without selecting a different companion. A missing child directory is allowed only beneath a verified private worktree and is created during execution, never during plan. Without a DATA override, the helper uses the authoritative shared resolver for discovery. It checks the enclosing worktree, its origin, and fresh PRIVATE visibility before credentials, exporter calls, or output writes. An unversioned directory, PUBLIC/UNKNOWN visibility, or the consumer's own checkout is rejected. Private linked Git worktrees are valid. Real archives and run history stay versioned in that private companion; credentials stay outside version control.
 
-## Prerequisites
+Credentials are local references only: `env:VARIABLE_NAME` or `file:ABSOLUTE_PATH`. Never ask the user to paste a credential into a conversation. The helper reads the reference only for execution and passes the value via the exporter's child `DISCORD_TOKEN` environment. Do not construct a token command-line flag. No browser credential extraction is part of this workflow.
 
-| Check | Command | Required |
-|---|---|---|
-| Git available | `git --version` | yes (clone reference repo) |
-| Python 3.8+ | `python --version` | yes (reorganize script) |
-| Playwright MCP tools loaded | check `mcp__plugin_playwright_playwright__browser_*` | yes (user login flow) |
-| Internet | n/a | yes (DCE release + Discord API) |
-| `.NET runtime` | NOT required, the CLI release is self-contained |
+Every effective fetch and push URL of every configured remote must prove PRIVATE visibility on github.com. Git routing overrides, custom transports, and TLS trust overrides are refused. The bundled shared HTTP policy checks every configuration occurrence, including URL scopes and empty resets, while allowing enabled certificate verification and supported performance options. Each proof uses one validated environment snapshot. Use canonical GitHub HTTPS URLs. The bundled shared static SSH verifier also accepts canonical SSH when it recognizes the client and proves canonical routing with default trust; missing proof, aliases, and unsupported configurations fail with HTTPS guidance. No SSH command runs during proof. Plan, resume, and completed replay also check the selected run tree and existing nested repositories before exporter probes, credential reads, or output writes.
 
-## Critical Rules (Non-Negotiable)
+## Export
 
-These come from real failures during the initial run. Apply automatically.
+1. Establish the authorized guild or channel ID, optional ISO date limits, and media preference. A guild export includes all accessible threads.
+2. Run `scripts/export_history.py plan` with `--exporter`, `--credential-ref`, `--run-id`, and exactly one of `--guild-id` / `--channel-id`. Optional arguments are `--after`, `--before`, `--media`, and `--resume`. Plan validates the private destination and prints the scope without reading a credential or writing files.
+3. Run the same arguments with `execute` when export is authorized. The helper probes exporter version/help, establishes credential transport, then exports HTML and JSON sequentially. DCE filenames always retain `[%c]`; `%t` preserves the category or parent channel ID.
+4. Read the run-level `manifest.json`. Only `status: complete` with a zero exit code is success. Quote its HTML/JSON/media counts, actual JSON message count, issues, and private companion. Partial or failed states require a nonzero exit and remain visible.
 
-1. **Always include `[%c]` (channel ID) in the output filename template.** Two threads in the same channel with identical titles will trigger a Windows `FileShare` violation and crash the entire export. Correct: `"exports/all/%t/%C [%c].html"`. Incorrect: `"exports/all/%t/%C.html"`.
-2. **Pass Windows-style paths to the `.exe`, not Git Bash `/c/...` paths.** Git Bash leaves `/c/Users/...` alone when handing to the Windows binary, which interprets it as `C:\c\Users\...` and silently writes 70 MB to the wrong drive root. Use `C:/Users/...` or `${PWD}` resolved by bash first.
-3. **`%t` in DCE is parent-container ID, NOT category name.** For a non-thread channel `%t` = category ID; for a thread `%t` = parent channel ID. The output folders are therefore Discord IDs, never human-readable names. Reorganize after export, see `scripts/reorganize.py`.
-4. **`--include-threads All`**, without this flag, forum channels (e.g. `help-forum`, `ideas`, `proposals`) export as empty because their entire content lives in threads.
-5. **`--parallel 4`**, 1 is too slow on a 40-channel guild, 8+ trips Discord rate limits faster than DCE's backoff can absorb.
-6. **Token rotation reminder before closing the session.** The token appears in plaintext in the conversation. Tell the user to change their Discord password.
+Output is `<resolved-private-data>/runs/<run-id>`. `run.json` freezes the exporter, credential reference, scope, date limits, and media choice. Completed reruns verify all existing files and return idempotently. An incomplete run needs `--resume` with identical configuration; retry uses a new attempt directory and retains previous files. It re-exports both formats rather than resuming at a message cursor. Never change scope under the same run ID or edit prior artifacts to make a check pass.
 
-## Workflow
+Every directory inventory must finish successfully. On enumeration errors, restore access before retrying; preserve all files and the last saved manifest. If an interrupted attempt cannot be reconciled on retry, use a new run ID as directed rather than editing its evidence.
 
-### Step 1: Confirm scope with user, surface ToS risk
+## Existing raw archives
 
-Ask in one focused message (NOT a barrage):
+Preserve the positional interface: `python scripts/reorganize.py RAW_DIR ORGANIZED_DIR CHANNELS_TXT`. Supply absolute paths from other working directories. The output must pass the same private Git boundary.
 
-- Guild type, server (OK), group DM (abort, route to GDPR), single channel (use `export` not `exportguild`)
-- Admin of server?, if yes, recommend Bot route instead
-- Acknowledge ToS risk in one sentence so the user can opt out
+The organizer preserves source bytes, ID folders, repeated-title identities, and nested media links. It writes `INDEX.md` plus a manifest with every source/destination path, channel ID, byte count, and SHA-256. JSON contributes counts from its actual `messages` array. A single-format input is complete for that explicitly supplied archive; mixed formats must have matching channel ID sets. Conflicts, unidentified files, broken local links, and changed input are rejected before copying; nothing is overwritten to resolve a collision.
 
-### Step 2: Provision DCE CLI
+Supported HTML needs an HTML5 doctype, closed sibling `preamble`, `chatlog`, and `postamble` sections in order, and an `Exported N message(s)` entry inside the postamble, following the DiscordChatExporter 2.47 template. Empty chatlogs are valid. Localized digit grouping and optional `html`/`body` end tags are accepted. Empty files, plain-text errors, generic error pages, and missing completion footers are rejected during organization, export, and completed replay. Text-only element contents and self-closing non-void elements cannot supply completion; CSS dependency checks recognize escaped identifiers. If a historical complete run fails content validation, preserve it and use a new run ID; only incomplete runs can retry into a new attempt with `--resume`.
 
-Default install location: `C:/path/to/DiscordChatExporter/`.
+Archives must work when opened from local files. Reject scheme-relative URLs (`//host/path`), which inherit `file:` in that context; keep explicit HTTP(S) remote URLs distinct from relative local paths. Active HTML `<base href>` is unsupported and fails before organization or completion, including empty values. Export without a base URL. A base element without `href` or inside inert template content does not alter the document base.
 
-```bash
-# Clone the source repo (for reference + version pinning)
-git clone https://github.com/Tyrrrz/DiscordChatExporter.git \
-  "C:/path/to/DiscordChatExporter"
+## Evidence boundary
 
-# Fetch latest CLI release (Windows x64, self-contained — no .NET install needed)
-TAG=$(curl -s https://api.github.com/repos/Tyrrrz/DiscordChatExporter/releases/latest \
-  | python -c "import json,sys; print(json.load(sys.stdin)['tag_name'])")
-mkdir -p "C:/path/to/DiscordChatExporter/bin"
-curl -sL -o "C:/path/to/DiscordChatExporter/bin/cli.zip" \
-  "https://github.com/Tyrrrz/DiscordChatExporter/releases/download/${TAG}/DiscordChatExporter.Cli.win-x64.zip"
-unzip -o "C:/path/to/DiscordChatExporter/bin/cli.zip" \
-  -d "C:/path/to/DiscordChatExporter/bin/cli"
-
-# Sanity check
-"C:/path/to/DiscordChatExporter/bin/cli/DiscordChatExporter.Cli.exe" --version
-```
-
-For other OS/arch, swap the asset name (`linux-x64`, `osx-arm64`, etc.).
-
-### Step 3: Capture token + guild ID via headed browser
-
-Load the Playwright MCP tools first (they are deferred, use `ToolSearch` with `select:mcp__plugin_playwright_playwright__browser_navigate,...`).
-
-```js
-// 1. Open login page — user logs in interactively (incl. 2FA)
-await page.goto('https://discord.com/login');
-
-// 2. Tell the user: "log in, then navigate to the target server/channel,
-//    then scroll or click any message to fire an API request, then say 'OK'"
-
-// 3. Read the URL — guild ID is the second path segment
-//    URL pattern: https://discord.com/channels/<guild_id>/<channel_id>
-const url = await page.evaluate(() => window.location.href);
-
-// 4. Extract the user token — iframe trick bypasses Discord's
-//    localStorage scrub-on-load. The token is JSON-encoded (extra quotes).
-const token = await page.evaluate(() => {
-  const f = document.createElement('iframe');
-  document.body.appendChild(f);
-  const t = f.contentWindow.localStorage.getItem('token');
-  f.remove();
-  return t ? t.replace(/^"|"$/g, '') : null;
-});
-```
-
-If the iframe trick returns `null`: Discord may have patched it again. Fall back to inspecting a network request, `browser_network_requests` with filter `discord\.com/api` then read the `Authorization` header from any one of them.
-
-### Step 4: Optional, list channels for the user to pick from / sanity-check guild
-
-```bash
-"$DCE_EXE" channels -t "$TOKEN" -g "$GUILD_ID"
-```
-
-Outputs `<channel_id> | <category> / <channel_name>` lines. Save to `channels.txt`, the reorganize script needs it.
-
-### Step 5: Export
-
-```bash
-# HTML (human-readable, on the order of 100 MB for tens of thousands of messages)
-"$DCE_EXE" exportguild \
-  -t "$TOKEN" \
-  -g "$GUILD_ID" \
-  -f HtmlDark \
-  --include-threads All \
-  --parallel 4 \
-  --fuck-russia \
-  -o "C:/path/to/DiscordChatExporter/exports/all/%t/%C [%c].html"
-
-# JSON (for analysis, a comparable size for the same export)
-"$DCE_EXE" exportguild \
-  -t "$TOKEN" \
-  -g "$GUILD_ID" \
-  -f Json \
-  --include-threads All \
-  --parallel 4 \
-  --fuck-russia \
-  -o "C:/path/to/DiscordChatExporter/exports/all_json/%t/%C [%c].json"
-```
-
-Run sequentially, NOT in parallel processes, same user token making concurrent requests to the same endpoints raises rate-limit pressure faster than DCE can back off.
-
-Expected non-fatal errors: `Request to 'channels/<id>/messages?limit=1' failed: forbidden.` for channels the user cannot read. DCE skips them and continues. Note them for the final summary.
-
-### Step 6: Reorganize raw output
-
-```bash
-python skills/discord-history-export/scripts/reorganize.py \
-  <raw_export_dir> <organized_output_dir> <channels.txt>
-```
-
-The raw layout is keyed by Discord ID (a DCE quirk, see Critical Rule 3). The script:
-- Detects whether each folder is a category or a channel-with-threads (by checking whether the folder ID matches a channel ID in `channels.txt`)
-- For category folders: copies main channel files up to `<category>/<channel>.html`
-- For channel-with-threads folders: copies into `<category>/<channel>_threads/<thread>.html`
-- Generates `INDEX.md` with file/message counts
-
-Run it once for HTML, once for JSON, into two parallel `organized/` trees.
-
-### Step 7: Stats + handoff
-
-Aggregate from the JSON export (lightweight one-liner):
-
-```python
-import json, glob
-total = 0
-for fp in glob.glob('organized_json/**/*.json', recursive=True):
-    total += len(json.load(open(fp, encoding='utf-8')).get('messages', []))
-print(total)
-```
-
-Report to the user:
-- Total messages, channel count, time range
-- Top channels by message volume
-- Forbidden channels (skipped by Discord, not by us)
-- Forum-channel quirk: those have no `<name>.html`, only `<name>_threads/`
-
-### Step 8: Security cleanup
-
-1. Close the Playwright browser instance.
-2. Tell the user: **"Change your Discord password now to invalidate the token that appeared in this conversation."** Plain rotation, no other action required.
-3. Do NOT save the token to memory or any persistent file. The `channels.txt` is fine to keep; the token is not.
-
-## Gotchas Encountered (Reference)
-
-These are the failure modes seen during the initial validation run. Each one cost a retry. The Critical Rules above encode the fixes; this section explains why.
-
-### G1, `%t` is not category name (silent)
-
-Documentation calls `%t` a "thread/category" token. In practice, output folders are 18-digit Discord IDs, not names. There is no human-readable category template variable in DCE 2.47. **Always reorganize.**
-
-### G2, Identical thread titles → file lock crash (fatal)
-
-DCE writes the channel file first, then opens it again for the message stream. When two threads in the same channel resolve to the same filename (because their titles are identical), the second open hits the first's lock and crashes the whole export, not just that file. **Always include `[%c]` in the filename template.**
-
-### G3, Git Bash path → wrong drive (silent, 70 MB misplaced)
-
-`-o "/c/Users/foo/bar.json"`, bash leaves it untouched; the Windows .exe sees an absolute path starting with `/c/` and writes to `C:\c\Users\foo\bar.json`. **Pass `C:/...` or resolve with `$(cygpath -w "$path")` before invoking the .exe.**
-
-### G4, Forum channels look "empty" (informational)
-
-Channels like `help-forum`, `ideas`, `proposals` are Discord Forum channels. Their entire content lives in posts (= threads). With `--include-threads All` the threads ARE captured, but there is no main-channel file. The reorganized output shows `forum-channel_threads/` only. **Tell the user this is expected, not a bug.**
-
-### G5, Forbidden channels (informational)
-
-Channels with role-gated read perms (often `moderator-only`, `*-reviewers`, `*-area-chairs`, private categories) return `403 forbidden` even to a logged-in user lacking the role. **DCE skips them cleanly; list them in the summary so the user knows.**
-
-### G6, Bot token ≠ user token (architectural)
-
-If the user already has a Discord Bot configured (e.g. for DM relay), its token is NOT reusable here, Bots can only read channels they have been invited to. This skill needs the user-account token, captured via the browser flow in Step 3.
-
-### G7, Token in transcript (security)
-
-User tokens captured this way appear in the conversation transcript. They cannot be redacted post-hoc. Password rotation is the only mitigation. Tell the user in Step 8.
-
-## Outputs
-
-After Step 6 completes, the user has:
-
-```
-exports/
-├── organized/                ← HTML for reading
-│   ├── INDEX.md              ← folder map + file/message counts
-│   ├── <Category 1>/
-│   │   ├── channel-a.html
-│   │   ├── channel-b.html
-│   │   ├── channel-a_threads/
-│   │   │   └── *.html
-│   │   └── forum-channel_threads/
-│   │       └── *.html
-│   └── ...
-├── organized_json/           ← parallel tree, same layout, JSON files
-├── all/, all_json/           ← raw DCE output (Discord-ID folders)
-└── channels.txt              ← guild channel list
-```
-
-Total size scales linearly with message count: ~2 KB/message HTML, ~1.4 KB/message JSON.
-
-## Variants
-
-- **Single channel only**: replace `exportguild -g $GUILD_ID` with `export -c $CHANNEL_ID`. Drop `--include-threads All` if the channel is not a forum.
-- **Date range**: add `--after 2025-01-01 --before 2025-12-31`.
-- **With media (avatars, attachments)**: add `--media --reuse-media`. Disk usage may 3-10× depending on image volume.
-- **macOS / Linux**: swap the release asset (`osx-arm64`, `linux-x64`).
+Synthetic tests and an installed-directory alias prove local behavior only. They do not prove live Discord access, exporter behavior on an actual account, plugin catalog activation, or a production run. Report those boundaries explicitly. Remote media URLs still need a network connection unless media was downloaded successfully.
