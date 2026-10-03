@@ -212,8 +212,9 @@ def validate_receipt_artifacts(run, manifest, config):
 
 
 def save_manifest(run, manifest):
+    private_topology(run / "manifest.json")
+    temporary, _ = private_topology(run / "manifest.json.tmp")
     manifest["files"] = file_receipts(run)
-    temporary = run / "manifest.json.tmp"
     with temporary.open("xb") as stream:
         stream.write(json_bytes(manifest))
     temporary.replace(run / "manifest.json")
@@ -248,16 +249,18 @@ def partial_entries(raw, run):
 def execute(args):
     config = configuration(args)
     data, companion = resolve_data_dir()
-    run, companion = private_topology(data / "runs" / args.run_id)
+    run, companion = private_topology(data / "runs" / args.run_id, directory=True)
     if not contains(data, run):
         raise ExportError("Run directory escapes the private DATA root.")
     previous = verify_existing(run, config, args.resume)
     attempt_number = previous.get("attempt", 0) + 1 if previous else 1
     attempt = run / "attempts" / f"{attempt_number:04d}"
-    for destination in (run / "run.json", run / "manifest.json", run / "manifest.json.tmp",
-                        attempt, attempt / "channels.txt", attempt / "raw" / "html",
-                        attempt / "raw" / "json", attempt / "organized" / "archive"):
-        private_topology(destination)
+    destinations = ((run / "run.json", False), (run / "manifest.json", False),
+                    (run / "manifest.json.tmp", False), (attempt, True),
+                    (attempt / "channels.txt", False), (attempt / "raw" / "html", True),
+                    (attempt / "raw" / "json", True), (attempt / "organized" / "archive", True))
+    for destination, directory in destinations:
+        private_topology(destination, directory=directory)
     if args.action == "plan":
         return {"schema_version": 1, "status": "planned", "configuration": config,
                 "companion": companion, "run_directory": str(run),
@@ -267,6 +270,9 @@ def execute(args):
     if attempt.exists():
         raise ExportError("Next attempt directory already exists. Preserve the run and choose a new run ID.")
     provenance = probe(config)
+    # External version/help probes must not leave a stale destination proof.
+    for destination, directory in ((run, True), *destinations):
+        private_topology(destination, directory=directory)
     secret = credential_value(config["credential_ref"])
     environment = dict(os.environ)
     environment["DISCORD_TOKEN"] = secret
@@ -295,10 +301,13 @@ def execute(args):
             channel_text = "\n".join(rows) + "\n"
         channels.write_text(channel_text, encoding="utf-8")
         for fmt in ("html", "json"):
+            private_topology(raw / fmt, directory=True)
             (raw / fmt).mkdir(parents=True)
             result = exporter_call(export_command(config, raw, fmt), environment)
             if result.returncode:
                 raise ExportError(f"Exporter failed during {fmt.upper()} export (exit {result.returncode}). Check bot permissions, connectivity, and date scope; then resume.")
+        # DCE chooses the raw basenames; check them before reporting completion.
+        private_topology(raw, directory=True)
         entries = inspect_archive(raw)
         validate_formats(entries, config)
         organized = attempt / "organized"

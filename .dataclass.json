@@ -30,7 +30,8 @@
     "tests/fixtures/example.md",
     "tests/fixtures/source14-cases.json",
     "tests/fixtures/source15-cases.json",
-    "tests/fixtures/source16-cases.json"
+    "tests/fixtures/source16-cases.json",
+    "tests/fixtures/test_native_storage.py"
   ],
   "_data_home": "Resolved by guards/tools/datadir.py, with DISCORD_HISTORY_EXPORT_DATA_DIR override. The helper verifies the real enclosing PRIVATE Git companion before writing; real output remains versioned there, never in this source tree."
 }

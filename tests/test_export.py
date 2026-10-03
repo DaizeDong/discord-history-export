@@ -51,6 +51,8 @@ class Harness:
         self.interrupt_format = None
         self.data_override = None
         self.repositories = {}
+        self.receipt_override = {}
+        self.proofs = []
 
     def run(self, argv, **kwargs):
         args = [str(a) for a in argv]
@@ -63,6 +65,12 @@ class Harness:
                 code = 128
             elif "--show-toplevel" in args:
                 output = str(root)
+            elif "--absolute-git-dir" in args:
+                output = str(root / ".git")
+            elif "--verify" in args:
+                output = "1" * 40
+            elif "check-ignore" in args:
+                code = 1
             elif "--list" in args:
                 repository = self.repositories.get(root, ("AcmeOrg/discord-history-export-config", self.visibility))[0]
                 output = "remote.origin.url\nhttps://github.com/" + repository + ".git\0"
@@ -73,11 +81,6 @@ class Harness:
                 output = "https://github.com/" + repository + ".git"
             else:
                 raise AssertionError(f"Unexpected git command: {args}")
-        elif args[0] == "gh":
-            requested = args[3].removeprefix("https://github.com/")
-            visibility = next((visibility for repository, visibility in self.repositories.values()
-                               if repository == requested), self.visibility)
-            output = json.dumps({"visibility": visibility, "nameWithOwner": requested})
         elif args[0] == str(self.exporter):
             if "--version" in args:
                 output = "DiscordChatExporter.Cli " + self.version
@@ -112,7 +115,14 @@ class Harness:
         return subprocess.CompletedProcess(args, code, stdout=output, stderr=error)
 
     def cli(self, monkeypatch, script, args):
-        sys.modules.pop("export_core", None)
+        core_path = (SCRIPTS / script).parent / "export_core.py"
+        spec = importlib.util.spec_from_file_location("export_core", core_path)
+        core = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(core)
+        sys.modules["export_core"] = core
+        states = lambda: {"AcmeOrg/discord-history-export-config": self.visibility,
+                          **{slug: state for slug, state in self.repositories.values()}, **self.receipt_override}
+        self.proofs = fixtures.bind_public_boundary(core, self.root, self.run, states)
         monkeypatch.setattr(subprocess, "run", self.run)
         override = str(self.data) if self.data_override is None else self.data_override
         monkeypatch.setenv("DISCORD_HISTORY_EXPORT_DATA_DIR", override)
@@ -561,7 +571,7 @@ def test_organizer_private_boundary(h, monkeypatch, visibility):
     assert code != 0
     assert not target.exists()
     assert "verified PRIVATE visibility and identity" in output
-    assert any(argv[0] == "gh" for argv, _ in h.calls)
+    assert any("get-url" in argv for argv, _ in h.calls)
 
 
 def test_plan_never_reads_credential_or_writes(h, monkeypatch):
@@ -571,7 +581,7 @@ def test_plan_never_reads_credential_or_writes(h, monkeypatch):
     code, output = h.cli(monkeypatch, "export_history.py", args)
     assert code == 0, output
     assert not list(h.data.iterdir())
-    assert all(call[0][0] in ("git", "gh") for call in h.calls)
+    assert all(call[0][0] == "git" for call in h.calls)
 
 
 def test_export_complete_and_replay(h, monkeypatch):
@@ -666,7 +676,7 @@ def test_runner_denies_unproven_destination(h, monkeypatch, case):
         assert not h.calls
     else:
         assert "verified PRIVATE visibility and identity" in output
-        assert any(argv[0] == "gh" for argv, _ in h.calls)
+        assert any("get-url" in argv for argv, _ in h.calls)
 
 
 def test_complete_tree_installed_alias(h, monkeypatch):
@@ -713,7 +723,7 @@ def test_local_credential_reference(h, monkeypatch, kind):
         assert not list(h.data.iterdir())
         expected = "Credential file is unavailable" if kind == "missing-file" else "Credential is empty or malformed"
         assert expected in output
-        assert any(argv[0] == "gh" for argv, _ in h.calls)
+        assert any("get-url" in argv for argv, _ in h.calls)
         assert [argv[1:] for argv, _ in h.calls if argv[0] == str(h.exporter)] == [
             ["--version"], ["exportguild", "--help"]]
 
@@ -772,11 +782,16 @@ def test_completed_manifest_counts_cannot_be_forged(h, monkeypatch):
     assert code == 1, output
 
 
-def test_shared_resolver_uses_canonical_consumer_root():
+def test_shared_resolver_uses_canonical_consumer_root(tmp_path, monkeypatch):
     spec = importlib.util.spec_from_file_location("root_probe", SCRIPTS / "export_core.py")
     core = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(core)
-    assert core.load_resolver()._own_repo_root() == str(ROOT.resolve())
+    resolver = core.load_resolver()
+    monkeypatch.setenv("DISCORD_HISTORY_EXPORT_DATA_DIR", str(ROOT))
+    with pytest.raises(RuntimeError):
+        resolver.resolve_data_dir(core.SKILL, create=False)
+    monkeypatch.setenv("DISCORD_HISTORY_EXPORT_DATA_DIR", str(tmp_path))
+    assert Path(resolver.resolve_data_dir(core.SKILL, create=False)) == tmp_path
 
 
 def test_mixed_organizer_formats_must_reconcile(h, monkeypatch):
@@ -829,7 +844,7 @@ def test_explicit_data_selection_never_falls_through(h, monkeypatch, case, mode)
         assert "environment overrides" not in output
         if case["kind"] in ("public", "unknown"):
             assert "verified PRIVATE visibility and identity" in output
-            assert any(argv[0] == "gh" for argv, _ in h.calls)
+            assert any("get-url" in argv for argv, _ in h.calls)
         elif case["kind"] == "own-source":
             assert "Output cannot be inside the tool's own source checkout" in output
             assert not h.calls
@@ -846,7 +861,7 @@ def test_explicit_data_selection_never_falls_through(h, monkeypatch, case, mode)
         assert len(reads) == 1
         manifest = json.loads((selected / "runs" / "synthetic-run" / "manifest.json").read_text())
         assert manifest["status"] == "complete"
-        assert manifest["companion"] == case["repository"]
+        assert manifest["companion"] == case["repository"].lower()
 
 
 @pytest.mark.parametrize("mode", ["plan", "execute"])
@@ -920,41 +935,8 @@ def source6_execute(h, monkeypatch, credential, action='execute', resume=False):
 
 
 def source6_bind_ssh_verifier(monkeypatch, configuration):
-    """Bind the shared parser to one synthetic config and retain read/result witnesses."""
-    original_spec = importlib.util.spec_from_file_location
-    original_read = Path.read_bytes
-    observations = {"reads": [], "problems": []}
-
-    def read(path):
-        data = original_read(path)
-        if path == configuration:
-            observations["reads"].append(data)
-        return data
-
-    def spec_for(name, path, *args, **kwargs):
-        spec = original_spec(name, path, *args, **kwargs)
-        if name == "discord_export_shared_boundary":
-            assert Path(path) == ROOT / "guards" / "tools" / "data_boundary.py"
-            original_exec = spec.loader.exec_module
-
-            def load(module):
-                original_exec(module)
-                monkeypatch.setattr(module, "_ssh_config_paths", lambda: [str(configuration)])
-                original_verifier = module._ssh_configuration_problem
-
-                def verify():
-                    problem = original_verifier()
-                    observations["problems"].append(problem)
-                    return problem
-
-                monkeypatch.setattr(module, "_ssh_configuration_problem", verify)
-
-            monkeypatch.setattr(spec.loader, "exec_module", load)
-        return spec
-
-    monkeypatch.setattr(Path, "read_bytes", read)
-    monkeypatch.setattr(importlib.util, "spec_from_file_location", spec_for)
-    return observations
+    """Isolate synthetic SSH file sources through standard-library seams."""
+    return fixtures.bind_synthetic_ssh_profile(monkeypatch, configuration)
 
 
 @pytest.mark.parametrize('case', fixtures.source6_publication_cases(), ids=lambda case: case['id'])
@@ -977,15 +959,13 @@ def test_source6_effective_publication_route_denies_before_activity(h, monkeypat
                 rows = [('remote.' + name + '.url', values['fetch'][0]) for name, values in case['routes'].items()]
                 rows.extend(case['config'])
                 output = ''.join(key + '\n' + value + '\0' for key, value in rows)
-        elif args[0] == 'gh':
-            slug = args[3].removeprefix('https://github.com/')
-            output = json.dumps({'visibility': case['visibility'].get(slug, 'UNKNOWN'), 'nameWithOwner': slug})
         if output is None:
             return base(argv, **kwargs)
         h.calls.append((args, kwargs.get('env')))
         return subprocess.CompletedProcess(args, 0, stdout=output, stderr='')
 
     h.run = route
+    h.receipt_override = case['visibility']
     for key, value in case['environment'].items():
         monkeypatch.setenv(key, value)
     if case.get('ssh_config'):
@@ -1010,34 +990,30 @@ def test_source6_effective_publication_route_denies_before_activity(h, monkeypat
         else:
             assert any('--list' in argv for argv, _ in h.calls)
             if case['id'] in ('custom-remote-command', 'ssh-command-config'):
-                assert 'Custom Git transport configuration' in output
+                assert 'Cannot verify private Git output' in output
             elif case['id'] == 'unknown-pushremote':
-                assert 'selected publication remote has no verifiable configured destination' in output
+                assert 'Cannot verify private Git output' in output
             elif case['id'] == 'ssh-active-proxy':
-                assert 'shared static verifier' in output
-                assert ssh_observations['reads'] == [case['ssh_config'].encode('utf-8')]
-                assert ssh_observations['problems'] == [
-                    'SSH configuration contains an unproven active option']
+                assert 'Cannot verify private Git output' in output
+                assert ssh_observations['reads']
+                assert all(data == case['ssh_config'].encode('utf-8') for data in ssh_observations['reads'])
                 configuration.write_bytes(case['safe_ssh_config'].encode('utf-8'))
                 ssh_observations['reads'].clear()
-                ssh_observations['problems'].clear()
                 h.calls.clear()
                 safe_code, safe_output = source6_execute(h, monkeypatch, credential, action='plan')
                 assert safe_code == 0, safe_output
                 assert ssh_observations['reads']
                 assert all(data == case['safe_ssh_config'].encode('utf-8')
                            for data in ssh_observations['reads'])
-                assert ssh_observations['problems']
-                assert all(problem is None for problem in ssh_observations['problems'])
-                assert any(argv[0] == 'gh' for argv, _ in h.calls)
+                assert any("get-url" in argv for argv, _ in h.calls)
                 assert reads == [] and all(argv[0] != str(h.exporter) for argv, _ in h.calls)
                 assert sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*')) == before
             elif case.get('http_policy'):
-                assert 'shared static HTTPS verifier' in output
+                assert 'Cannot verify private Git output' in output
                 assert all(argv[0] != 'gh' for argv, _ in h.calls)
             else:
                 assert 'verified PRIVATE visibility and identity' in output
-                assert any(argv[0] == 'gh' for argv, _ in h.calls)
+                assert any("get-url" in argv for argv, _ in h.calls)
 
 
 @pytest.mark.parametrize('case', fixtures.source6_nested_destination_cases(), ids=lambda case: case['id'])
@@ -1058,8 +1034,7 @@ def test_source6_nested_run_parent_private_proof_precedes_activity(h, monkeypatc
         assert hashes(h.data) == before
         assert sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*')) == tree_before
         assert 'verified PRIVATE visibility and identity' in output
-        assert any(argv[:4] == ['gh', 'repo', 'view', 'https://github.com/' + case['repository']]
-                   for argv, _ in h.calls)
+        assert any('get-url' in argv and Path(argv[2]) == nested for argv, _ in h.calls)
 
 
 @pytest.mark.parametrize('case', [case for case in fixtures.source6_nested_destination_cases() if not case['allowed']])
@@ -1097,8 +1072,7 @@ def test_source6_resume_rechecks_future_artifact_destinations(h, monkeypatch, ca
     assert reads == [] and all(argv[0] != str(h.exporter) for argv, _ in h.calls)
     assert hashes(h.data) == before
     assert 'verified PRIVATE visibility and identity' in output
-    assert any(argv[:4] == ['gh', 'repo', 'view', 'https://github.com/' + case['repository']]
-               for argv, _ in h.calls)
+    assert any('get-url' in argv and Path(argv[2]) == nested for argv, _ in h.calls)
 
 
 @pytest.mark.parametrize('case', [case for case in fixtures.source6_nested_destination_cases() if case['allowed']])
@@ -1131,5 +1105,4 @@ def test_source6_standalone_organizer_checks_nested_target_before_copy(h, monkey
         assert 'verified PRIVATE visibility and identity' in output
     else:
         assert 'Existing output contains unrelated directories' in output
-    assert any(argv[:4] == ['gh', 'repo', 'view', 'https://github.com/' + case['repository']]
-               for argv, _ in h.calls)
+    assert any('get-url' in argv and Path(argv[2]) == nested for argv, _ in h.calls)

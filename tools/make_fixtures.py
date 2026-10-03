@@ -27,19 +27,19 @@ def mocked_transport_environment_cases():
 
 
 def ssh_alias_scenarios():
-    """Unsupported SSH aliases and canonical SSH without a proven client configuration."""
+    """Synthetic SSH configurations evaluated by the accepted public proof API."""
     alias = 'synthetic-gh'
     identity = 'example/synthetic-discord-config'
     ordinary = 'Host synthetic-gh\n  HostName github.com\n'
     return {'alias': alias, 'identity': identity, 'origin': 'git@'+alias+':'+identity+'.git',
             'ordinary': ordinary, 'cases': [
-                ['scp', 'git@'+alias+':'+identity+'.git', ordinary, False],
-                ['ssh-url', 'ssh://git@'+alias+'/'+identity+'.git', ordinary, False],
-                ['multiple-hosts', 'git@'+alias+':'+identity+'.git', 'Host unused synthetic-gh\n HostName github.com\n', False],
+                ['scp', 'git@'+alias+':'+identity+'.git', ordinary, True],
+                ['ssh-url', 'ssh://git@'+alias+'/'+identity+'.git', ordinary, True],
+                ['multiple-hosts', 'git@'+alias+':'+identity+'.git', 'Host unused synthetic-gh\n HostName github.com\n', True],
                 ['equals', 'git@'+alias+':'+identity+'.git', 'Host synthetic-gh\n HostName = "github.com" # synthetic\n', False],
                 ['active-commands', 'git@'+alias+':'+identity+'.git', ordinary+' ProxyCommand synthetic-no-execute\n LocalCommand synthetic-no-execute\n', False],
                 ['literal-https', 'https://github.com/'+identity+'.git', None, True],
-                ['literal-ssh', 'git@github.com:'+identity+'.git', None, False],
+                ['literal-ssh', 'git@github.com:'+identity+'.git', None, True],
                 ['unknown', 'git@unknown-synthetic:'+identity+'.git', ordinary, False],
                 ['missing', 'git@'+alias+':'+identity+'.git', None, False],
                 ['unrelated', 'git@'+alias+':'+identity+'.git', 'Host synthetic-gh\n HostName example.com\n', False],
@@ -51,17 +51,17 @@ def ssh_alias_scenarios():
                 ['malformed', 'git@'+alias+':'+identity+'.git', 'Host "synthetic-gh\n HostName github.com\n', False],
                 ['https-alias', 'https://'+alias+'/'+identity+'.git', ordinary, False],
                 ['bad-slug', 'git@'+alias+':example/repo/extra.git', ordinary, False],
-                ['wildcard', 'git@'+alias+':'+identity+'.git', 'Host synthetic-*\n HostName github.com\n', False],
+                ['wildcard', 'git@'+alias+':'+identity+'.git', 'Host synthetic-*\n HostName github.com\n', True],
                 ['first-value-preserved', 'git@'+alias+':'+identity+'.git', ordinary+'Host *\n HostName example.com\n', False],
-                ['compact-equals', 'git@'+alias+':'+identity+'.git', 'Host=synthetic-gh\n HostName=github.com\n', False],
-                ['global-hostname', 'git@'+alias+':'+identity+'.git', 'HostName github.com\n', False],
+                ['compact-equals', 'git@'+alias+':'+identity+'.git', 'Host=synthetic-gh\n HostName=github.com\n', True],
+                ['global-hostname', 'git@'+alias+':'+identity+'.git', 'HostName github.com\n', True],
                 ['case-insensitive', 'git@SYNTHETIC-GH:'+identity+'.git', 'hOsT Synthetic-Gh\n HOSTNAME GitHub.com\n', False],
                 ['literal-brackets', 'git@'+alias+':'+identity+'.git', 'Host [s]ynthetic-gh\n HostName github.com\n', False],
                 ['canonicalization', 'git@'+alias+':'+identity+'.git', ordinary+' CanonicalizeHostname yes\n', False],
                 ['empty-host', 'git@'+alias+':'+identity+'.git', 'Host\n HostName github.com\n', False],
                 ['ssh-other-user', 'ssh://other@'+alias+'/'+identity+'.git', ordinary, False],
                 ['scp-other-user', 'other@'+alias+':'+identity+'.git', ordinary, False],
-                ['https-user', 'https://git@github.com/'+identity+'.git', None, False],
+                ['https-user', 'https://git@github.com/'+identity+'.git', None, True],
                 ['ssh-password', 'ssh://git:synthetic@'+alias+'/'+identity+'.git', ordinary, False],
                 ['ssh-query', 'ssh://git@'+alias+'/'+identity+'.git?x=1', ordinary, False],
                 ['ssh-fragment', 'ssh://git@'+alias+'/'+identity+'.git#x', ordinary, False],
@@ -462,6 +462,7 @@ def source9_legacy_guild(run, case):
 
 def generated():
     return {
+        "test_native_storage.py": native_storage_test_source(),
         "catalog.json": json.dumps(records(), indent=2) + "\n",
         "source15-cases.json": json.dumps({"links": source15_file_link_cases(), "archives": source15_archive_cases()}, indent=2) + "\n",
         "source16-cases.json": json.dumps({"links": source16_link_cases(), "archives": source16_archive_cases()}, indent=2) + "\n",
@@ -1214,6 +1215,89 @@ def source16_legacy_complete(run, case):
             manifest["files"].append({"path": path.relative_to(run).as_posix(),
                                       "size_bytes": len(content), "sha256": hashlib.sha256(content).hexdigest()})
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+
+def native_storage_test_source():
+    """Return the complete synthetic native storage regression module."""
+    return '"""Generated native Git storage controls; recreate with tools/make_fixtures.py."""\nfrom datetime import datetime, timezone, timedelta\nimport hashlib\nimport importlib.util\nimport json\nimport os\nfrom pathlib import Path\nimport subprocess\n\nimport pytest\n\nROOT = Path(__file__).resolve().parents[2]\nSCRIPTS = ROOT / "skills/discord-history-export/scripts"\nSLUG = "acmeorg/synthetic-discord-config"\n\n\nclass NativeCompanion:\n    def __init__(self, root, monkeypatch):\n        self.root, self.monkeypatch = root, monkeypatch\n        self.home = root / "home"\n        self.home.mkdir()\n        self.repository = root / "companion"\n        self.environment = {key: value for key, value in os.environ.items()\n                            if key.upper() in {"SYSTEMROOT", "WINDIR", "PATH", "TEMP", "TMP"}}\n        self.environment.update(HOME=str(self.home), USERPROFILE=str(self.home),\n                                GIT_AUTHOR_NAME="Synthetic User", GIT_AUTHOR_EMAIL="user1@example.com",\n                                GIT_COMMITTER_NAME="Synthetic User", GIT_COMMITTER_EMAIL="user1@example.com")\n        self.native_run = subprocess.run\n        self.git("init", "--template=", str(self.repository), cwd=root)\n        self.git("config", "remote.origin.url", "https://github.com/" + SLUG + ".git")\n        tree = self.git("hash-object", "-t", "tree", "-w", "--stdin", input="").stdout.strip()\n        commit = self.git("commit-tree", tree, "-m", "Synthetic empty companion").stdout.strip()\n        self.git("update-ref", "HEAD", commit)\n        for key in list(os.environ):\n            monkeypatch.delenv(key)\n        for key, value in self.environment.items():\n            if not key.startswith("GIT_"):\n                monkeypatch.setenv(key, value)\n        self.receipt = self.home / ".pii-guard/visibility.json"\n        self.receipt.parent.mkdir()\n        self.visibility()\n        self.calls = []\n        monkeypatch.setattr(subprocess, "run", self.run)\n        spec = importlib.util.spec_from_file_location("native_discord_core", SCRIPTS / "export_core.py")\n        self.core = importlib.util.module_from_spec(spec)\n        spec.loader.exec_module(self.core)\n\n    def git(self, *arguments, cwd=None, input=None):\n        result = self.native_run(["git", *arguments], cwd=cwd or self.repository, env=self.environment,\n                                 input=input, capture_output=True, text=True, encoding="utf-8")\n        assert result.returncode == 0, (arguments, result.returncode, result.stderr)\n        return result\n\n    def visibility(self, state="PRIVATE", age=0):\n        stamp = datetime.now(timezone.utc) - timedelta(days=age)\n        self.receipt.write_text(json.dumps({"_refreshed": stamp.isoformat(), SLUG: state, "acmeorg/synthetic-public": "PUBLIC"}), encoding="utf-8")\n\n    def run(self, arguments, **kwargs):\n        self.calls.append((list(map(str, arguments)), dict(kwargs)))\n        if arguments[0] == "git":\n            return self.native_run(arguments, **kwargs)\n        if arguments[0] == "gh":\n            # The old consumer queried gh; this synthetic response exposes that dependency.\n            return subprocess.CompletedProcess(arguments, 0, json.dumps({\n                "visibility": "PRIVATE", "nameWithOwner": SLUG}), "")\n        raise AssertionError("Only local Git reads are permitted during storage proof")\n\n    def files(self):\n        return {str(path.relative_to(self.repository)): hashlib.sha256(path.read_bytes()).hexdigest()\n                for path in self.repository.rglob("*") if path.is_file()}\n\n\n@pytest.fixture\ndef native(tmp_path, monkeypatch):\n    return NativeCompanion(tmp_path, monkeypatch)\n\n\n@pytest.mark.parametrize("relative", [".", "data/future", "data/exact.json"])\ndef test_native_private_receipt_needs_no_network_or_writes(native, relative):\n    target = native.repository / relative\n    before = native.files()\n    assert native.core.private_destination(target) == (target.resolve(), SLUG)\n    assert native.files() == before\n    assert native.calls and all(args[0] == "git" for args, _ in native.calls)\n    queries = [args[1:] for args, _ in native.calls if "check-ignore" in args]\n    assert ["check-ignore", "--no-index", "-q", "--", relative] in queries\n\n\ndef test_native_unborn_private_repository_is_rejected(native):\n    native.git("update-ref", "-d", "HEAD")\n    with pytest.raises(native.core.ExportError):\n        native.core.private_destination(native.repository / "data/new.json")\n\n\n@pytest.mark.parametrize("relative,pattern", [\n    ("data/secret.json", "data/secret.json\\n"),\n    ("data/missing/file.json", "data/missing/\\n"),\n    ("data/tracked.json", "data/tracked.json\\n"),\n])\ndef test_native_exact_ignored_destination_is_rejected(native, relative, pattern):\n    if "tracked" in relative:\n        target = native.repository / relative\n        target.parent.mkdir()\n        target.write_text("synthetic record\\n", encoding="utf-8")\n        blob = native.git("hash-object", "-w", str(target)).stdout.strip()\n        native.git("update-index", "--add", "--cacheinfo", "100644," + blob + "," + relative)\n    (native.repository / ".gitignore").write_text(pattern, encoding="utf-8")\n    before = native.files()\n    with pytest.raises(native.core.ExportError):\n        native.core.private_destination(native.repository / relative)\n    assert native.files() == before\n\n\n@pytest.mark.parametrize("state,age", [("PUBLIC", 0), ("UNKNOWN", 0), ("PRIVATE", 90)])\ndef test_native_invalid_local_receipt_is_rejected_without_gh(native, state, age):\n    native.visibility(state, age)\n    with pytest.raises(native.core.ExportError):\n        native.core.private_destination(native.repository / "data/new.json")\n    assert all(args[0] == "git" for args, _ in native.calls)\n\n\ndef test_native_linked_private_worktree_is_supported(native):\n    linked = native.root / "linked"\n    native.git("worktree", "add", "--detach", str(linked))\n    assert (linked / ".git").is_file()\n    target = linked / "data/future.json"\n    assert native.core.private_destination(target) == (target.resolve(), SLUG)\n    assert not target.parent.exists()\n\n\ndef test_native_hardlinked_existing_output_is_rejected(native):\n    original, alias = native.repository / "original", native.repository / "alias"\n    original.write_text("synthetic content", encoding="utf-8")\n    os.link(original, alias)\n    with pytest.raises(native.core.ExportError):\n        native.core.private_destination(alias)\n    assert not native.calls\n\n\ndef test_native_public_nested_companion_is_rejected(native):\n    nested = native.repository / "data/nested"\n    nested.mkdir(parents=True)\n    native.git("init", "--template=", str(nested))\n    native.git("config", "remote.origin.url", "https://github.com/acmeorg/synthetic-public.git", cwd=nested)\n    with pytest.raises(native.core.ExportError):\n        native.core.private_topology(native.repository / "data")\n\n\ndef test_native_private_source_repository_name_is_rejected(native):\n    slug = "acmeorg/discord-history-export"\n    native.git("config", "remote.origin.url", "https://github.com/" + slug + ".git")\n    native.receipt.write_text(json.dumps({"_refreshed": datetime.now(timezone.utc).isoformat(), slug: "PRIVATE"}))\n    with pytest.raises(native.core.ExportError):\n        native.core.private_destination(native.repository / "data")\n\n\ndef test_native_existing_ignored_artifact_is_rechecked(native):\n    data = native.repository / "data"\n    data.mkdir()\n    (data / "existing.json").write_text("synthetic archive\\n", encoding="utf-8")\n    (native.repository / ".gitignore").write_text("data/existing.json\\n", encoding="utf-8")\n    before = native.files()\n    with pytest.raises(native.core.ExportError):\n        native.core.private_topology(data)\n    assert native.files() == before\n\n\ndef native_export(native, mutate_after_probe=False, observations=None):\n    """Load the complete runner with a generated exporter and real local Git proof."""\n    import sys\n    spec = importlib.util.spec_from_file_location("native_storage_fixtures", ROOT / "tools/make_fixtures.py")\n    generated = importlib.util.module_from_spec(spec)\n    spec.loader.exec_module(generated)\n    exporter = native.root / "synthetic-exporter"\n    exporter.write_text("synthetic intercepted executable", encoding="utf-8")\n    credential = native.root / "synthetic-credential"\n    credential.write_text(generated.SECRET, encoding="utf-8")\n    reads = []\n    original_read = Path.read_text\n\n    def read(path, *args, **kwargs):\n        if path == credential:\n            reads.append(path)\n        return original_read(path, *args, **kwargs)\n\n    native.monkeypatch.setattr(Path, "read_text", read)\n    native.monkeypatch.setenv("DISCORD_HISTORY_EXPORT_DATA_DIR", str(native.repository / "data"))\n\n    def run(arguments, **kwargs):\n        args = list(map(str, arguments))\n        if args[0] != str(exporter):\n            return native.run(arguments, **kwargs)\n        if observations is not None:\n            observations.setdefault("exporter_calls", []).append(args[1:])\n        if "--version" in args:\n            output = "2.47"\n        elif "--help" in args:\n            output = "Synthetic export command"\n            if mutate_after_probe:\n                native.git("config", "remote.origin.url", "https://github.com/acmeorg/synthetic-public.git")\n        else:\n            fmt = "json" if args[args.index("-f") + 1] == "Json" else "html"\n            target = Path(args[args.index("-o") + 1].partition("%t")[0])\n            generated.populate(target, formats=(fmt,), channels=("channel",))\n            output = ""\n        return subprocess.CompletedProcess(arguments, 0, output, "")\n\n    native.monkeypatch.setattr(subprocess, "run", run)\n    native.monkeypatch.setitem(sys.modules, "export_core", native.core)\n    spec = importlib.util.spec_from_file_location("native_storage_history", SCRIPTS / "export_history.py")\n    history = importlib.util.module_from_spec(spec)\n    previous = list(sys.path)\n    try:\n        spec.loader.exec_module(history)\n    finally:\n        sys.path[:] = previous\n    arguments = ["execute", "--exporter", str(exporter), "--credential-ref", "file:" + str(credential),\n                 "--run-id", "synthetic-run", "--channel-id", generated.IDS["channel"]]\n    return history, arguments, reads\n\n\ndef test_native_ignored_dynamic_raw_files_cannot_report_complete(native):\n    (native.repository / ".gitignore").write_text("**/raw/**/*.html\\n", encoding="utf-8")\n    history, arguments, reads = native_export(native)\n    assert history.main(arguments) == 1\n    run = native.repository / "data/runs/synthetic-run"\n    result = json.loads((run / "manifest.json").read_text(encoding="utf-8"))\n    assert result["status"] == "partial"\n    assert any((run / "attempts/0001/raw").rglob("*.html"))\n    assert not (run / "attempts/0001/organized").exists()\n\n\ndef test_native_route_change_during_exporter_probe_precedes_credentials(native):\n    history, arguments, reads = native_export(native, mutate_after_probe=True)\n    assert history.main(arguments) == 1\n    assert reads == []\n    assert not (native.repository / "data").exists()\n\n\ndef test_native_absent_data_directory_ignore_is_rejected_without_creation(native):\n    target = native.repository / "data/not-created"\n    (native.repository / ".gitignore").write_text("data/not-created/\\n", encoding="utf-8")\n    native.monkeypatch.setenv("DISCORD_HISTORY_EXPORT_DATA_DIR", str(target))\n    before = native.files()\n    with pytest.raises(native.core.ExportError):\n        native.core.resolve_data_dir()\n    assert native.files() == before\n    assert not target.exists()\n\n\n@pytest.mark.parametrize("relative", [".", "data/not-created"])\ndef test_native_future_directory_and_repository_root_remain_supported(native, relative):\n    target = native.repository / relative\n    native.monkeypatch.setenv("DISCORD_HISTORY_EXPORT_DATA_DIR", str(target))\n    before = native.files()\n    assert native.core.resolve_data_dir() == (target.resolve(), SLUG)\n    assert native.files() == before\n\n\ndef test_native_directory_only_ignore_does_not_reject_an_exact_file(native):\n    target = native.repository / "data/exact.json"\n    (native.repository / ".gitignore").write_text("data/exact.json/\\n", encoding="utf-8")\n    before = native.files()\n    assert native.core.private_destination(target) == (target.resolve(), SLUG)\n    assert native.files() == before\n    assert not target.exists()\n\n\ndef test_native_ignored_empty_directory_in_existing_tree_is_rejected(native):\n    target = native.repository / "data"\n    (target / "empty").mkdir(parents=True)\n    (native.repository / ".gitignore").write_text("data/empty/\\n", encoding="utf-8")\n    before = native.files()\n    with pytest.raises(native.core.ExportError):\n        native.core.private_topology(target)\n    assert native.files() == before\n\n\n@pytest.mark.parametrize("relative", ["raw/html", "raw/json", "organized/archive"])\ndef test_native_known_output_directory_ignore_precedes_probes_credentials_and_writes(native, relative):\n    (native.repository / ".gitignore").write_text("**/" + relative + "/\\n", encoding="utf-8")\n    observations = {}\n    history, arguments, reads = native_export(native, observations=observations)\n    before = native.files()\n    assert history.main(arguments) == 1\n    assert reads == []\n    assert observations.get("exporter_calls", []) == []\n    assert native.files() == before\n    assert not (native.repository / "data").exists()\n\n\ndef test_native_exact_file_directory_pattern_allows_complete_export(native):\n    (native.repository / ".gitignore").write_text("**/channels.txt/\\n", encoding="utf-8")\n    history, arguments, reads = native_export(native)\n    assert history.main(arguments) == 0\n    assert len(reads) == 1\n    run = native.repository / "data/runs/synthetic-run"\n    result = json.loads((run / "manifest.json").read_text(encoding="utf-8"))\n    assert result["status"] == "complete"\n    assert any((run / "attempts/0001/raw/html").rglob("*.html"))\n    assert any((run / "attempts/0001/raw/json").rglob("*.json"))\n'
+
+
+def bind_public_boundary(core, root, runner, states, environment=None):
+    """Bind the real public proof to generated receipts and intercepted local Git."""
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    original_load = getattr(core, "fixture_boundary_loader", core.load_boundary)
+    core.fixture_boundary_loader = original_load
+    observations = []
+
+    class Proxy:
+        def __init__(self, original, **overrides):
+            self.original, self.overrides = original, overrides
+
+        def __getattr__(self, name):
+            return self.overrides[name] if name in self.overrides else getattr(self.original, name)
+
+    def load():
+        boundary = original_load()
+        if environment is not None:
+            boundary.os = Proxy(boundary.os, environ=environment)
+
+        def run(arguments, **kwargs):
+            if arguments[0] != "git":
+                raise AssertionError("The private proof may only invoke local Git")
+            arguments = ["git", "-C", str(kwargs["cwd"]), *arguments[1:]]
+            return runner(arguments, **kwargs)
+
+        boundary.subprocess = Proxy(boundary.subprocess, run=run)
+        prove = boundary.prove_private_companion
+
+        def public_proof(destination, visibility_map=None):
+            receipt = Path(root) / "synthetic-visibility.json"
+            receipt.write_text(json.dumps({"_refreshed": datetime.now(timezone.utc).isoformat(), **states()}),
+                               encoding="utf-8")
+            proof = prove(destination, visibility_map=receipt)
+            observations.append(SimpleNamespace(destination=Path(destination), proof=proof))
+            return proof
+
+        boundary.prove_private_companion = public_proof
+        return boundary
+
+    core.load_boundary = load
+    return observations
+
+
+def bind_synthetic_ssh_profile(monkeypatch, configuration):
+    """Use standard-library OS seams to isolate the shared parser's file sources."""
+    import ctypes
+    import os
+    configuration = Path(configuration)
+    home = configuration.parent.parent
+    for key in ("HOME", "USERPROFILE", "ProgramData"):
+        monkeypatch.setenv(key, str(home))
+    if os.name == "nt":
+        def profile(window, folder, token, flags, buffer):
+            buffer.value = str(home)
+            return 0
+        monkeypatch.setattr(ctypes.windll.shell32, "SHGetFolderPathW", profile)
+    else:
+        import pwd
+        from types import SimpleNamespace
+        monkeypatch.setattr(pwd, "getpwuid", lambda uid: SimpleNamespace(pw_dir=str(home)))
+    original_read = Path.read_bytes
+    observations = {"reads": []}
+
+    def read(path):
+        if path == configuration:
+            content = original_read(path)
+            observations["reads"].append(content)
+            return content
+        if path.name in {"config", "ssh_config"} and (
+                path.parent.name == ".ssh" or path.parent.name == "ssh"):
+            return b""
+        return original_read(path)
+
+    monkeypatch.setattr(Path, "read_bytes", read)
+    return observations
 
 
 def main():
