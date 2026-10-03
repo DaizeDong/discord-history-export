@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import stat
 import subprocess
-from types import MappingProxyType
 from urllib.parse import unquote, urlsplit, quote
 
 SOURCE_ROOT = Path(__file__).resolve().parents[3]
@@ -40,26 +39,7 @@ def load_resolver():
     spec = importlib.util.spec_from_file_location("discord_export_guard_datadir", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    # The pinned resolver treats every .git file as a submodule. Give it the known consumer
-    # anchor so a linked source worktree retains sibling discovery and own-repo rejection.
-    module._own_repo_root = lambda: str(SOURCE_ROOT)
     return module
-
-
-def command_text(argv, environment=None):
-    environment = dict(_transport_environment() if environment is None else environment)
-    _check_transport_environment(environment)
-    controlled = {"GIT_OPTIONAL_LOCKS", "GH_HOST", "GH_PROMPT_DISABLED"}
-    environment = {key: value for key, value in environment.items() if key.upper() not in controlled}
-    environment.update(GIT_OPTIONAL_LOCKS="0", GH_HOST="github.com", GH_PROMPT_DISABLED="1")
-    try:
-        result = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                                timeout=30, env=environment)
-    except (OSError, subprocess.SubprocessError):
-        raise ExportError("Cannot verify private Git output. Install Git and authenticate gh, then retry.") from None
-    if result.returncode:
-        raise ExportError("Cannot verify private Git output. Check the companion origin and gh access.")
-    return result.stdout.strip()
 
 
 def _check_transport_environment(environment=None):
@@ -74,90 +54,21 @@ def _check_transport_environment(environment=None):
             raise ExportError("Private destination verification requires the github.com authority.")
 
 
-def _transport_environment():
-    environment = dict(os.environ)
-    _check_transport_environment(environment)
-    return MappingProxyType(environment)
-
-
-def _check_ssh_configuration():
-    """Use the shared static verifier; unsupported installed pins fail before SSH activity."""
+def load_boundary():
+    """Load only the shared, supported companion proof and read interfaces."""
     path = SOURCE_ROOT / "guards" / "tools" / "data_boundary.py"
-    message = "SSH destination proof requires the shared static verifier. Use canonical GitHub HTTPS remotes."
     if not path.is_file():
-        raise ExportError(message)
+        raise ExportError("Missing guards submodule. Run git submodule update --init --recursive in the source checkout.")
     try:
         spec = importlib.util.spec_from_file_location("discord_export_shared_boundary", path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        verifier = getattr(module, "_ssh_configuration_problem", None)
-        if not callable(verifier) or verifier() is not None:
-            raise ExportError(message)
-    except Exception:
-        raise ExportError(message) from None
-
-
-def _check_https_configuration(settings, environment):
-    """Apply the shared policy to every config occurrence and the proof's snapshot."""
-    path = SOURCE_ROOT / "guards" / "tools" / "data_boundary.py"
-    message = "Private publication proof requires the shared static HTTPS verifier and supported HTTP configuration."
-    if not path.is_file():
-        raise ExportError(message)
-    try:
-        spec = importlib.util.spec_from_file_location("discord_export_shared_boundary", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        verifier = getattr(module, "_https_configuration_problem", None)
-        if not callable(verifier) or verifier(settings, environment) is not None:
-            raise ExportError(message)
-    except Exception:
-        raise ExportError(message) from None
-
-
-def _github_identity(origin):
-    match = re.fullmatch(
-        r"(?P<transport>https://github\.com/|git@github\.com:|ssh://git@github\.com(?::22)?/)"
-        r"(?P<slug>[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*?)(?:\.git)?/?", origin)
-    if not match:
-        raise ExportError("Destination is not canonical GitHub HTTPS or git@github.com SSH. Use canonical HTTPS remotes.")
-    if not match.group("transport").startswith("https:"):
-        _check_ssh_configuration()
-    return match.group("slug")
-
-
-def _publication_destinations(root, environment):
-    prefix = ["git", "-C", str(root)]
-    raw = command_text([*prefix, "config", "--null", "--list"], environment)
-    settings = []
-    for record in raw.split("\0"):
-        if not record:
-            continue
-        key, separator, value = record.partition("\n")
-        if not separator:
-            raise ExportError("Effective Git configuration could not be read unambiguously.")
-        settings.append((key.lower(), value))
-    _check_https_configuration(settings, environment)
-    remotes = command_text([*prefix, "remote"], environment).splitlines()
-    if not remotes or len(set(remotes)) != len(remotes) or any(
-            not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]*", name) for name in remotes):
-        raise ExportError("Companion publication remotes are absent or ambiguous.")
-    for key, value in settings:
-        custom_transport = key in {"core.sshcommand", "core.gitproxy", "ssh.variant"} or (
-            key.startswith("remote.") and key.rsplit(".", 1)[-1] in {"vcs", "proxy", "uploadpack", "receivepack"})
-        if custom_transport:
-            raise ExportError("Custom Git transport configuration prevents private publication proof.")
-        selected_remote = key == "remote.pushdefault" or (
-            key.startswith("branch.") and key.rsplit(".", 1)[-1] in {"remote", "pushremote"})
-        if selected_remote and value not in remotes:
-            raise ExportError("A selected publication remote has no verifiable configured destination.")
-    destinations = []
-    for remote in remotes:
-        for options in ([], ["--push"]):
-            urls = command_text([*prefix, "remote", "get-url", *options, "--all", remote], environment).splitlines()
-            if not urls or any(not url.strip() for url in urls):
-                raise ExportError("A publication remote has no provable effective URL.")
-            destinations.extend(_github_identity(url) for url in urls)
-    return list(dict.fromkeys(destinations))
+        if not all(callable(getattr(module, name, None)) for name in
+                   ("prove_private_companion", "read_private_companion_git")):
+            raise ImportError("Unsupported companion proof API")
+        return module
+    except (ImportError, AttributeError, OSError, RuntimeError, ValueError, TypeError):
+        raise ExportError("The guards submodule must provide the supported private companion proof API.") from None
 
 
 def destination_path(path):
@@ -174,10 +85,9 @@ def destination_path(path):
     return target.resolve()
 
 
-def private_destination(path):
-    """Require the actual enclosing worktree, including linked Git worktrees, to be PRIVATE."""
-    load_resolver()
-    environment = _transport_environment()
+def private_destination(path, *, directory=False):
+    """Prove the enclosing PRIVATE worktree and exact file or directory trackability."""
+    _check_transport_environment()
     target = destination_path(path)
     if contains(SOURCE_ROOT, target):
         raise ExportError("Output cannot be inside the tool's own source checkout. Select its private companion.")
@@ -186,43 +96,50 @@ def private_destination(path):
         ancestor = ancestor.parent
     if not ancestor.is_dir():
         raise ExportError("Output parent must be a directory in a private Git companion.")
-    root_text = command_text(["git", "-C", str(ancestor), "rev-parse", "--show-toplevel"], environment)
-    if not root_text:
-        raise ExportError("Output has no proven enclosing Git worktree.")
-    root = Path(root_text).resolve()
-    if not contains(root, target) or not (root / ".git").exists():
-        raise ExportError("Output has no proven enclosing Git worktree.")
-    if contains(SOURCE_ROOT, root) or contains(root, SOURCE_ROOT):
-        raise ExportError("The tool's consumer worktree cannot also be the DATA companion.")
-    destinations = _publication_destinations(root, environment)
-    for slug in destinations:
-        if slug.rsplit("/", 1)[-1].lower() == SKILL:
+    boundary = load_boundary()
+    try:
+        proof = boundary.prove_private_companion(ancestor)
+        root = destination_path(proof.root)
+        if not contains(root, target):
+            raise ExportError("Output has no proven enclosing Git worktree.")
+        if contains(SOURCE_ROOT, root) or contains(root, SOURCE_ROOT):
+            raise ExportError("The tool's consumer worktree cannot also be the DATA companion.")
+        if any(slug.rsplit("/", 1)[-1].lower() == SKILL for slug in proof.repositories):
             raise ExportError("A source repository cannot also be the DATA companion.")
-        try:
-            proof = json.loads(command_text(["gh", "repo", "view", "https://github.com/" + slug,
-                                             "--json", "visibility,nameWithOwner"], environment))
-        except (ValueError, TypeError):
-            raise ExportError("Companion visibility could not be verified; no output was written.") from None
-        if (not isinstance(proof, dict) or proof.get("visibility") != "PRIVATE"
-                or str(proof.get("nameWithOwner", "")).casefold() != slug.casefold()):
-            raise ExportError("Every effective publication destination requires verified PRIVATE visibility and identity.")
-    return target, destinations[0]
+        boundary.read_private_companion_git(proof, "rev-parse", "--verify", "HEAD")
+        relative = target.relative_to(root).as_posix()
+        if relative != "." and (directory or target.is_dir()):
+            relative += "/"
+        ignored = boundary.read_private_companion_git(proof, "check-ignore", "--no-index", "-q", "--", relative)
+        if ignored.returncode == 0:
+            raise ExportError("The exact output path is ignored by Git. Select a trackable path in the private companion.")
+        if destination_path(path) != target:
+            raise ExportError("Output topology changed during private companion proof.")
+    except ExportError:
+        raise
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError, subprocess.SubprocessError):
+        raise ExportError("Cannot verify private Git output. Every destination requires verified PRIVATE visibility and identity, "
+                          "a fresh local visibility receipt, a committed HEAD, and supported Git transport configuration.") from None
+    return target, proof.repositories[0]
 
 
 def enumeration_error(error):
     raise ExportError("Directory enumeration failed. Restore directory access and retry.") from error
 
 
-def private_topology(path):
+def private_topology(path, *, directory=False):
     """Prove the chosen tree before reading credentials, probing exporters, or writing."""
-    target, companion = private_destination(path)
+    target, companion = private_destination(path, directory=directory)
     if target.is_dir():
-        for directory, dirs, files in os.walk(target, followlinks=False, onerror=enumeration_error):
-            current = Path(directory)
+        for folder, dirs, files in os.walk(target, followlinks=False, onerror=enumeration_error):
+            current = Path(folder)
             for name in dirs + files:
                 destination_path(current / name)
-            if current != target and (current / ".git").exists():
-                private_destination(current)
+            for name in files:
+                if name != ".git":
+                    private_destination(current / name)
+            if current != target:
+                private_destination(current, directory=True)
             dirs[:] = [name for name in dirs if name != ".git"]
     return target, companion
 
@@ -234,14 +151,14 @@ def resolve_data_dir():
         if not selected.strip():
             raise ExportError("DISCORD_HISTORY_EXPORT_DATA_DIR is empty. Select a directory in a private Git companion.")
         # Read discovery may skip absent paths; a writer must honor the explicit selection.
-        return private_destination(selected)
+        return private_destination(selected, directory=True)
     try:
         path = resolver.resolve_data_dir(SKILL, create=False)
     except RuntimeError:
         raise ExportError("Private DATA is not initialized. Set DISCORD_HISTORY_EXPORT_DATA_DIR to a directory in a private Git companion.") from None
     if path is None:
         raise ExportError("Private DATA is not initialized. Set DISCORD_HISTORY_EXPORT_DATA_DIR to a directory in a private Git companion.")
-    return private_destination(path)
+    return private_destination(path, directory=True)
 
 
 def files_under(root):
@@ -782,7 +699,7 @@ def validate_channel_sets(entries, *, require_both=False):
 
 def organize(raw, destination, channels_file):
     raw = Path(raw).resolve()
-    destination, companion = private_topology(destination)
+    destination, companion = private_topology(destination, directory=True)
     if contains(raw, destination) or contains(destination, raw):
         raise ExportError("Raw and organized archives must be separate, non-overlapping directories.")
     channels = parse_channels(channels_file)

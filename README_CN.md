@@ -30,15 +30,15 @@
 git clone --recurse-submodules https://github.com/DaizeDong/discord-history-export.git
 ```
 
-已有克隆需运行 `git submodule update --init --recursive`。缺少 guards 子模块会直接报错。环境需要 Python 3.10+、Git、已登录的 GitHub CLI (`gh`)，以及支持的 [DiscordChatExporter CLI 版本](https://github.com/Tyrrrz/DiscordChatExporter/releases)。脚本会先检查指定程序的版本和导出命令帮助，再读取凭据；不会自动下载或安装导出工具。
+已有克隆需运行 `git submodule update --init --recursive`。缺少 guards 子模块会直接报错。环境需要 Python 3.10+、Git、有效的本地 Guards 可见性凭据，以及支持的 [DiscordChatExporter CLI 版本](https://github.com/Tyrrrz/DiscordChatExporter/releases)。脚本会先检查指定程序的版本和导出命令帮助，再读取 Bot 凭据；不会自动下载或安装导出工具。
 
 ## 私有 DATA 与凭据
 
-新建或使用一个独立的 **PRIVATE GitHub 仓库**，克隆到本机，把 `DISCORD_HISTORY_EXPORT_DATA_DIR` 指向其中的数据目录。子目录可以尚未创建；脚本会先确认所属工作树是私有仓，再在执行时创建。明确设置 DATA 路径后，脚本就以它为准：空值、无效路径或不允许的目标会直接失败，不会改用另一个伴生仓。未设置 DATA 路径时，脚本使用[共享解析器](guards/COMPANION.md)查找目录。写入前还会检查工作树及 origin，并用 `gh repo view` 查询当前可见性。普通仓库和 linked worktree 都支持。公开仓、可见性未知、没有版本管理的目录，以及工具自己的源码目录都会被拒绝。
+新建或使用一个独立的 **PRIVATE GitHub 仓库**，克隆到本机，把 `DISCORD_HISTORY_EXPORT_DATA_DIR` 指向其中的数据目录。子目录可以尚未创建；脚本会先确认所属工作树是私有仓，再在执行时创建。明确设置 DATA 路径后，脚本就以它为准：空值、无效路径或不允许的目标会直接失败，不会改用另一个伴生仓。未设置 DATA 路径时，脚本使用[共享解析器](guards/COMPANION.md)查找目录。写入前，共享 Guards 接口会根据本地可见性凭据核对工作树及所有实际发布地址。仓库必须已有提交，具体输出路径也不能被 Git 忽略。可见性凭据缺失或过期、PUBLIC/UNKNOWN 状态、没有提交的仓库、被忽略的路径，以及工具自己的源码目录都会被拒绝。普通仓库和 linked worktree 都支持。
 
-所有已配置 remote 的实际 fetch 和 push 地址都必须对应 PRIVATE GitHub 仓库，检查包括 URL 改写和指定的发布 remote。自定义传输命令、Git 路由环境变量和 TLS 信任设置会被拒绝。随附的共享 HTTP 策略逐条检查配置，包括限定 URL 的配置和空值重置前的值；允许开启证书验证和受支持的性能选项。每次目标验证都使用同一份经过检查的环境快照。请使用标准的 `https://github.com/OWNER/REPOSITORY.git` 地址。随附的共享静态 SSH 检查器也支持标准 `git@github.com` 地址，前提是能识别客户端，并证明其使用标准路由和默认信任设置。检查器缺失、配置不受支持或使用 SSH 别名时，会提示改用 HTTPS。检查过程不会启动 SSH。
+所有已配置 remote 的实际 fetch 和 push 地址都必须对应 PRIVATE GitHub 仓库，检查包括 URL 改写和指定的发布 remote。自定义传输命令、Git 路由环境变量和 TLS 信任设置会被拒绝。共享 HTTP 策略逐条检查配置，包括限定 URL 的配置和空值重置前的值；允许开启证书验证和受支持的性能选项。每次目标验证都使用同一份经过检查的环境快照。请使用标准的 `https://github.com/OWNER/REPOSITORY.git` 地址。共享静态 SSH 策略也支持能确认指向 GitHub 的别名，前提是能识别客户端，并确认其保留默认的服务器信任设置。导出前需按 [Guards 配置说明](guards/COMPANION.md)准备或刷新本地可见性凭据。目标验证本身不会启动 SSH、`gh` 或网络请求。
 
-预览、执行、重试和已完成任务的复验都会先检查所选运行目录及其中已有的嵌套仓库，再读取凭据、探测导出程序或写文件。公开或无法确认可见性的嵌套仓库会被拒绝。私有 linked worktree 仍可使用；Git 管理文件不计入归档清单。
+预览、执行、重试和已完成任务的复验都会先检查所选运行目录及其中已有的嵌套仓库。导出程序的版本和帮助探测结束后，还会再次检查目标，再读取 Bot 凭据。已有归档文件和导出程序新生成的原始文件都要通过逐文件的 Git 忽略规则检查。若原始文件被忽略，文件会保留在私有伴生仓中，任务报部分失败，不会显示完成。脚本不会自动暂存、提交或推送存档。公开或无法确认可见性的嵌套仓库会被拒绝；Git 管理文件不计入归档清单。
 
 Bot 凭据放在本机环境变量中，或放在公开源码目录之外的本地文件里。`--credential-ref` 只接收 `env:VARIABLE_NAME` 或 `file:ABSOLUTE_PATH`。凭据文件应只允许所有者读取，并排除在版本管理之外。不要把凭据值发到助手对话或写进命令行。脚本仅在执行时读取值，通过子进程的 `DISCORD_TOKEN` 环境变量传给导出工具。stdout/stderr 由脚本捕获，失败时不会回显或记录原始输出；保存频道列表前会移除其中的凭据值。
 
@@ -81,7 +81,7 @@ python tools/make_fixtures.py
 python -m pytest tests -q
 ```
 
-离线测试使用生成的合成 Discord 记录，拦截导出程序、Git 和 GitHub CLI 调用，检查凭据、输出边界、媒体完整性、重试和完整安装目录别名。这只能证明离线行为，不能证明真实 Discord 权限、所有平台上的导出程序兼容性、插件目录激活或无人值守运行。仍为远程 URL 的媒体需要网络访问；需要下载附件时请加 `--media`。导出程序报错不会被当作成功。
+离线测试使用生成的合成 Discord 记录，并拦截导出程序调用。存储边界测试还会使用真实的临时 Git 仓库和生成的本地可见性凭据，不会请求 Discord 或 GitHub。测试检查凭据、输出边界、媒体完整性、重试和完整安装目录别名。这只能证明离线行为，不能证明真实 Discord 权限、所有平台上的导出程序兼容性、插件目录激活或无人值守运行。仍为远程 URL 的媒体需要网络访问；需要下载附件时请加 `--media`。导出程序报错不会被当作成功。
 
 ## 语言
 

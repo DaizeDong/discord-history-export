@@ -52,6 +52,8 @@ class SyntheticExport:
         self.core.os = Proxy(os, environ=self.env)
         self.core.subprocess = Proxy(subprocess, run=self.run)
         self.core.load_resolver = lambda: SimpleNamespace(resolve_data_dir=lambda *a, **k: self.data)
+        self.proofs = fixtures.bind_public_boundary(self.core, self.root, self.run,
+                                                     lambda: {self.workspace["slug"]: "PRIVATE"}, self.env)
         previous = sys.modules.get("export_core")
         previous_path = list(sys.path)
         sys.modules["export_core"] = self.core
@@ -71,7 +73,13 @@ class SyntheticExport:
         self.calls.append((args, dict(kwargs.get("env", {}))))
         slug = self.workspace["slug"]
         if args[0] == "git":
-            if "rev-parse" in args:
+            if "--absolute-git-dir" in args:
+                output = str(self.workspace["companion"] / ".git")
+            elif "--verify" in args:
+                output = "1" * 40
+            elif "check-ignore" in args:
+                return subprocess.CompletedProcess(args, 1, stdout="", stderr="")
+            elif "rev-parse" in args:
                 output = str(self.workspace["companion"])
             elif "config" in args:
                 output = "remote.origin.url\nhttps://github.com/" + slug + ".git\0"
@@ -85,8 +93,6 @@ class SyntheticExport:
                 raise AssertionError("Unexpected synthetic Git command")
             if self.inject and len(self.calls) == 1:
                 self.env.update(self.inject)
-        elif args[0] == "gh":
-            output = json.dumps({"visibility": "PRIVATE", "nameWithOwner": slug})
         elif args[0] == self.workspace["exporter"]:
             if "--version" in args:
                 output = "2.47"
@@ -153,35 +159,8 @@ class Source11Contract(unittest.TestCase):
     def test_environment_snapshot_is_bound_and_rechecked(self):
         h = self.harness()
         h.inject = h.workspace["mutation"]
-        shared_observations = []
-        original_spec = importlib.util.spec_from_file_location
-
-        def shared_spec(name, path, *args, **kwargs):
-            spec = original_spec(name, path, *args, **kwargs)
-            if name == "discord_export_shared_boundary":
-                original_exec = spec.loader.exec_module
-
-                def load(module):
-                    original_exec(module)
-                    original_verify = module._https_configuration_problem
-
-                    def verify(entries, environment):
-                        shared_observations.append((entries, environment))
-                        return original_verify(entries, environment)
-
-                    module._https_configuration_problem = verify
-
-                spec.loader.exec_module = load
-            return spec
-
-        with patch.object(importlib.util, "spec_from_file_location", shared_spec):
-            h.core.private_destination(h.data)
-        self.assertEqual(len(shared_observations), 1)
-        entries, shared_environment = shared_observations[0]
-        self.assertEqual(entries, [("remote.origin.url", "https://github.com/" + h.workspace["slug"] + ".git")])
-        self.assertTrue(set(h.inject).isdisjoint(shared_environment))
-        with self.assertRaises(TypeError):
-            shared_environment["SYNTHETIC_MUTATION"] = "blocked"
+        h.core.private_destination(h.data)
+        self.assertEqual(len(h.proofs), 1)
         self.assertTrue(h.calls)
         for _, environment in h.calls:
             self.assertTrue(set(h.inject).isdisjoint(environment))
@@ -190,12 +169,8 @@ class Source11Contract(unittest.TestCase):
         with self.assertRaises(h.core.ExportError):
             h.core.private_destination(h.data)
         self.assertEqual(len(h.calls), count)
-        with self.assertRaises(h.core.ExportError):
-            h.core.command_text(["git"], environment=h.inject)
-        self.assertEqual(len(h.calls), count)
-        with self.assertRaises(TypeError):
-            clean = self.harness().core._transport_environment()
-            clean["SYNTHETIC_MUTATION"] = "blocked"
+        with self.assertRaises(AttributeError):
+            h.proofs[0].proof.signature = "synthetic-change"
 
     def check_archive_paths(self, kind, case, allowed):
         h = self.harness(kind, case)
