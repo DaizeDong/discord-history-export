@@ -5,12 +5,12 @@
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-orange?style=flat)](https://docs.anthropic.com/en/docs/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![DiscordChatExporter](https://img.shields.io/badge/Engine-DiscordChatExporter-green?style=flat)](https://github.com/Tyrrrz/DiscordChatExporter)
-[![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](#语言)
+[![Languages](https://img.shields.io/badge/Languages-EN%20%2F%20CN-blue?style=flat)](README.md)
 [![Roadmap](https://img.shields.io/badge/Roadmap-v0.1.0-purple?style=flat)](ROADMAP.md)
 
 [English](README.md) | [中文版](README_CN.md)
 
-## ⭐ 先读设计理念
+## ⭐ 设计哲学
 
 一份存档得说得清文件来自哪个频道，也得过段时间还能打开。DiscordChatExporter 负责访问 Discord；这个 skill 负责本地处理：凭据只传入子进程环境，真实产物只写到确认过的私有 Git 仓库，每个文件都记录频道 ID、字节数和校验和。
 
