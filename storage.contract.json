@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "tool": "discord-history-export",
+  "artifacts": [
+    {
+      "artifact_id": "readme",
+      "path_pattern": "README.md",
+      "purpose": "Companion setup metadata linking to the source contract.",
+      "schema": "DATA.md and the source initializer, when present.",
+      "producer": "Companion maintainer or source initializer.",
+      "consumer_or_final_deliverable": "Companion discovery and restore instructions.",
+      "rebuild_or_restore": "Recreate from current source documentation.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep only the minimal current setup instructions and exclusions; replace obsolete copies."
+      }
+    },
+    {
+      "artifact_id": "exclusions",
+      "path_pattern": ".gitignore",
+      "purpose": "Companion setup metadata linking to the source contract.",
+      "schema": "DATA.md and the source initializer, when present.",
+      "producer": "Companion maintainer or source initializer.",
+      "consumer_or_final_deliverable": "Companion discovery and restore instructions.",
+      "rebuild_or_restore": "Recreate from current source documentation.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep only the minimal current setup instructions and exclusions; replace obsolete copies."
+      }
+    },
+    {
+      "artifact_id": "empty_data_marker",
+      "path_pattern": "data/.gitkeep",
+      "purpose": "Companion setup metadata linking to the source contract.",
+      "schema": "DATA.md and the source initializer, when present.",
+      "producer": "Companion maintainer or source initializer.",
+      "consumer_or_final_deliverable": "Companion discovery and restore instructions.",
+      "rebuild_or_restore": "Recreate from current source documentation.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "Keep only the minimal current setup instructions and exclusions; replace obsolete copies."
+      }
+    },
+    {
+      "artifact_id": "runs",
+      "path_pattern": "data/runs/*/**",
+      "purpose": "Immutable export scope, attempt inputs, raw and organized archives, media and manifests.",
+      "schema": "skills/discord-history-export/scripts/export_history.py: existing_run; export_core.py: inspect_archive and organize.",
+      "producer": "skills/discord-history-export/scripts/export_history.py.",
+      "consumer_or_final_deliverable": "The selected complete archive, verified replay, or active incomplete-run recovery.",
+      "rebuild_or_restore": "Restore the complete run with every manifest-listed byte; a fresh export is a new run if its immutable inputs differ.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep selected deliverables and active or unresolved runs. Within a retained run preserve every manifest dependency, including earlier attempts. Retire a whole unneeded run only after all recovery, verification and downstream references end; do not prune individual files from a retained immutable run."
+      }
+    },
+    {
+      "artifact_id": "standalone_archive",
+      "path_pattern": "data/organized/*/**",
+      "purpose": "A selected organized archive imported through the positional organizer.",
+      "schema": "skills/discord-history-export/scripts/export_core.py: organize manifest schema.",
+      "producer": "skills/discord-history-export/scripts/reorganize.py.",
+      "consumer_or_final_deliverable": "Portable private archive and its INDEX.md.",
+      "rebuild_or_restore": "Restore all manifest-listed files and their exact source bytes if a rebuild remains required.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep only selected archives with a current deliverable or verification requirement; retire superseded copies after confirming no consumer still references them."
+      }
+    },
+    {
+      "artifact_id": "standalone_inputs",
+      "path_pattern": "data/raw/*/**",
+      "purpose": "Raw archive input retained for a selected standalone organized deliverable.",
+      "schema": "skills/discord-history-export/scripts/export_core.py: inspect_archive.",
+      "producer": "An authorized exporter or archive import.",
+      "consumer_or_final_deliverable": "The matching standalone organizer invocation and verification.",
+      "rebuild_or_restore": "Restore exact source bytes and channel mapping; do not regenerate historical evidence from a different export.",
+      "retention_rule": {
+        "class": "core",
+        "rule": "Keep only while a selected archive needs these inputs for verification or an explicitly required rebuild. Retire after that dependency ends."
+      }
+    },
+    {
+      "artifact_id": "empty_run_container",
+      "path_pattern": "data/runs",
+      "purpose": "Default empty container awaiting the first export run.",
+      "schema": "skills/discord-history-export/scripts/export_history.py standard run path.",
+      "producer": "Private companion setup or export execution.",
+      "consumer_or_final_deliverable": "The export workflow creates a run-specific child here.",
+      "rebuild_or_restore": "Recreate the empty container inside the verified PRIVATE companion when needed.",
+      "retention_rule": {
+        "class": "rebuildable",
+        "rule": "May remain while this companion is configured. Retire only while empty and no export process is using it."
+      }
+    }
+  ]
+}
