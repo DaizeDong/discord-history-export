@@ -4,6 +4,10 @@ All notable changes to this project are documented here (Keep a Changelog style)
 
 ## [Unreleased]
 
+### Storage review threshold
+- Set a 64 MiB companion working-data review threshold. Required observations and
+  recovery state stay protected when the threshold is exceeded.
+
 ### Changed
 - Credentials use local `env:` or `file:` references and reach the exporter through its child environment. Planning and completed replay do not read credential values. This supersedes the historical browser-driven capture workflow.
 - Exports retain immutable scope, separate attempts, ID-preserving HTML/JSON archives, local media links, inventory and checksum receipts in a verified PRIVATE Git companion. Completed replay verifies existing artifacts; partial retries preserve previous attempts and rerun both formats.
