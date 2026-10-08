@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import sys
 from urllib.parse import unquote, urlsplit, quote
 
 SOURCE_ROOT = Path(__file__).resolve().parents[3]
@@ -85,7 +86,7 @@ def destination_path(path):
     return target.resolve()
 
 
-def private_destination(path, *, directory=False):
+def private_destination(path, *, directory=False, data_root=False):
     """Prove the enclosing PRIVATE worktree and exact file or directory trackability."""
     _check_transport_environment()
     target = destination_path(path)
@@ -104,6 +105,8 @@ def private_destination(path, *, directory=False):
             raise ExportError("Output has no proven enclosing Git worktree.")
         if contains(SOURCE_ROOT, root) or contains(root, SOURCE_ROOT):
             raise ExportError("The tool's consumer worktree cannot also be the DATA companion.")
+        if data_root and target != root / "data":
+            raise ExportError("Select the companion's data/ directory declared in storage.contract.json.")
         if any(slug.rsplit("/", 1)[-1].lower() == SKILL for slug in proof.repositories):
             raise ExportError("A source repository cannot also be the DATA companion.")
         boundary.read_private_companion_git(proof, "rev-parse", "--verify", "HEAD")
@@ -125,6 +128,37 @@ def private_destination(path, *, directory=False):
 
 def enumeration_error(error):
     raise ExportError("Directory enumeration failed. Restore directory access and retry.") from error
+
+
+def load_storage():
+    path = SOURCE_ROOT / 'guards/tools/storage_contract.py'
+    try:
+        spec = importlib.util.spec_from_file_location('discord_export_storage_contract', path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    except (OSError, ImportError, AttributeError) as exc:
+        raise ExportError('Initialize pinned guards artifact admission before writing archives.') from exc
+
+
+def authorize_archive(path, artifact_id, *, directory=False):
+    """Bind concrete archive outputs to their producer before any creation."""
+    lexical = Path(path).expanduser().absolute()
+    destination_path(lexical)
+    existing = lexical
+    while not existing.exists():
+        existing = existing.parent
+    if existing.is_file():
+        existing = existing.parent
+    try:
+        proof = load_boundary().prove_private_companion(existing)
+        root = Path(proof.root)
+        return load_storage().authorize_artifact_write(
+            SOURCE_ROOT, root, lexical.relative_to(root).as_posix(),
+            artifact_id=artifact_id, directory=directory).path
+    except (OSError, RuntimeError, ValueError, AttributeError) as exc:
+        raise ExportError('Source artifact admission refused the archive destination: ' + str(exc)) from exc
 
 
 def private_topology(path, *, directory=False):
@@ -151,14 +185,14 @@ def resolve_data_dir():
         if not selected.strip():
             raise ExportError("DISCORD_HISTORY_EXPORT_DATA_DIR is empty. Select a directory in a private Git companion.")
         # Read discovery may skip absent paths; a writer must honor the explicit selection.
-        return private_destination(selected, directory=True)
+        return private_destination(selected, directory=True, data_root=True)
     try:
         path = resolver.resolve_data_dir(SKILL, create=False)
     except RuntimeError:
         raise ExportError("Private DATA is not initialized. Set DISCORD_HISTORY_EXPORT_DATA_DIR to a directory in a private Git companion.") from None
     if path is None:
         raise ExportError("Private DATA is not initialized. Set DISCORD_HISTORY_EXPORT_DATA_DIR to a directory in a private Git companion.")
-    return private_destination(path, directory=True)
+    return private_destination(path, directory=True, data_root=True)
 
 
 def files_under(root):
@@ -697,7 +731,8 @@ def validate_channel_sets(entries, *, require_both=False):
     return json_ids
 
 
-def organize(raw, destination, channels_file):
+def organize(raw, destination, channels_file, *, artifact_id='standalone_archive'):
+    destination = authorize_archive(destination, artifact_id, directory=True)
     raw = Path(raw).resolve()
     destination, companion = private_topology(destination, directory=True)
     if contains(raw, destination) or contains(destination, raw):
@@ -719,7 +754,7 @@ def organize(raw, destination, channels_file):
     index += "\n\n" + json.dumps(manifest["summary"], sort_keys=True) + "\n"
     output["INDEX.md"] = index.encode("utf-8")
     for relative in output:
-        private_destination(destination / relative)
+        authorize_archive(destination / relative, artifact_id)
     if destination.exists():
         existing = {p.relative_to(destination).as_posix(): p.read_bytes() for p in files_under(destination)}
         if existing:
@@ -729,8 +764,9 @@ def organize(raw, destination, channels_file):
         if any(destination.iterdir()):
             raise ExportError("Existing output contains unrelated directories. Choose an empty destination.")
     for relative, content in output.items():
-        path = destination / relative
+        path = authorize_archive(destination / relative, artifact_id)
         path.parent.mkdir(parents=True, exist_ok=True)
+        path = authorize_archive(path, artifact_id)
         with path.open("xb") as stream:
             stream.write(content)
     return manifest

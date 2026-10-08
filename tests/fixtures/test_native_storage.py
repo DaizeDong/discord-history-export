@@ -249,11 +249,12 @@ def test_native_absent_data_directory_ignore_is_rejected_without_creation(native
 
 
 @pytest.mark.parametrize("relative", [".", "data/not-created"])
-def test_native_future_directory_and_repository_root_remain_supported(native, relative):
+def test_native_undeclared_data_roots_are_rejected(native, relative):
     target = native.repository / relative
     native.monkeypatch.setenv("DISCORD_HISTORY_EXPORT_DATA_DIR", str(target))
     before = native.files()
-    assert native.core.resolve_data_dir() == (target.resolve(), SLUG)
+    with pytest.raises(native.core.ExportError, match="data/"):
+        native.core.resolve_data_dir()
     assert native.files() == before
 
 

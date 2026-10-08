@@ -13,7 +13,7 @@ The complete source tree requires its guards submodule. Read [reference/credenti
 
 Resolve the installed skill directory before invoking `scripts/export_history.py`. Paths in commands must be absolute when running from an unrelated current directory. The helper discovers the canonical source tree itself, including through an installed alias.
 
-Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to a directory in a separate private Git companion. An explicit DATA selection is authoritative; invalid or empty values fail without selecting a different companion. A missing child directory is allowed only beneath a verified private worktree and is created during execution, never during plan. Without a DATA override, the helper uses the authoritative shared resolver for discovery. The public Guards proof checks the enclosing worktree and all physical and effective publication routes against its local visibility receipt. The helper also requires committed HEAD and an exact output path that Git does not ignore. Missing or stale receipts, PUBLIC/UNKNOWN visibility, unversioned or unborn repositories, ignored paths, and the consumer's own checkout are rejected before credentials, exporter calls, or output writes. Private linked Git worktrees are valid. Real archives and run history stay versioned in that private companion; credentials stay outside version control.
+Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to exactly `<companion>/data` in a separate private Git companion. An explicit DATA selection is authoritative; invalid or empty values fail without selecting a different companion. A missing child directory is allowed only beneath a verified private worktree and is created during execution, never during plan. Without a DATA override, the helper uses the authoritative shared resolver for discovery. The public Guards proof checks the enclosing worktree and all physical and effective publication routes against its local visibility receipt. The helper also requires committed HEAD and an exact output path that Git does not ignore. Missing or stale receipts, PUBLIC/UNKNOWN visibility, unversioned or unborn repositories, ignored paths, and the consumer's own checkout are rejected before credentials, exporter calls, or output writes. Private linked Git worktrees are valid. Real archives and run history stay versioned in that private companion; credentials stay outside version control.
 
 Credentials are local references only: `env:VARIABLE_NAME` or `file:ABSOLUTE_PATH`. Never ask the user to paste a credential into a conversation. The helper reads the reference only for execution and passes the value via the exporter's child `DISCORD_TOKEN` environment. Do not construct a token command-line flag. No browser credential extraction is part of this workflow.
 
@@ -32,7 +32,7 @@ Every directory inventory must finish successfully. On enumeration errors, resto
 
 ## Existing raw archives
 
-Preserve the positional interface: `python scripts/reorganize.py RAW_DIR ORGANIZED_DIR CHANNELS_TXT`. Supply absolute paths from other working directories. The output must pass the same private Git boundary.
+Preserve the positional interface: `python scripts/reorganize.py RAW_DIR ORGANIZED_DIR CHANNELS_TXT`. Supply absolute paths from other working directories. `ORGANIZED_DIR` must be under `<companion>/data/organized/<archive-id>/` and pass the same private Git boundary.
 
 The organizer preserves source bytes, ID folders, repeated-title identities, and nested media links. It writes `INDEX.md` plus a manifest with every source/destination path, channel ID, byte count, and SHA-256. JSON contributes counts from its actual `messages` array. A single-format input is complete for that explicitly supplied archive; mixed formats must have matching channel ID sets. Conflicts, unidentified files, broken local links, and changed input are rejected before copying; nothing is overwritten to resolve a collision.
 
@@ -45,3 +45,5 @@ The destination is proved again after exporter version/help probes, before readi
 ## Evidence boundary
 
 Synthetic tests and an installed-directory alias prove local behavior only. They do not prove live Discord access, exporter behavior on an actual account, plugin catalog activation, or a production run. Report those boundaries explicitly. Remote media URLs still need a network connection unless media was downloaded successfully.
+
+The standalone organizer writes only below `<companion>/data/organized/<archive-id>/`. Runner-organized output remains under its declared `data/runs/<run-id>/` tree. Every actual output needs the matching source artifact owner, current PRIVATE proof, a committed HEAD and effective Git trackability before creation.

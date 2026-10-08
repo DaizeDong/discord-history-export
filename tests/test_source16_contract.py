@@ -119,7 +119,7 @@ class Source16BusinessContract(unittest.TestCase):
                 with self.subTest(case=case["name"]):
                     root = Path(temporary) / str(index)
                     harness = Harness(root / "organize", case)
-                    raw, target = harness.root / "raw", harness.data / "organized"
+                    raw, target = harness.root / "raw", harness.data / "organized" / "archive"
                     prior.fixtures.source14_archive(raw, case)
                     before = prior.hashes(raw)
                     if case["allowed"]:

@@ -4,6 +4,9 @@ All notable changes to this project are documented here (Keep a Changelog style)
 
 ## [Unreleased]
 
+- Bind concrete runtime writer destinations and transaction files to canonical source artifact admission before creation. Offline regression controls preserve PRIVATE, retention, topology and versioning refusals.
+
+
 ### Storage review threshold
 - Set a 64 MiB companion working-data review threshold. Required observations and
   recovery state stay protected when the threshold is exceeded.
@@ -14,6 +17,7 @@ All notable changes to this project are documented here (Keep a Changelog style)
 - Boundary checks reject unproved publication routes, ignored output, nested public repositories and I/O failures before completion. The helper does not stage, commit or push archives.
 
 ### Fixed
+- Require the declared companion data/ root before exporter probes, credential reads or output writes. Declare configuration applicability as runtime storage only.
 - Companion maintenance points to the pinned `guards/tools/datadir.py` resolver and current run/attempt recovery contract.
 
 ## [0.1.0] - 2026-06-24

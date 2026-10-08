@@ -174,7 +174,7 @@ class Source11Contract(unittest.TestCase):
 
     def check_archive_paths(self, kind, case, allowed):
         h = self.harness(kind, case)
-        raw, target = h.root / "raw", h.data / "organized"
+        raw, target = h.root / "raw", h.data / "organized" / "archive"
         fixtures.source11_archive(raw, kind, case)
         before = hashes(raw)
         if allowed:

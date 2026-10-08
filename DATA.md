@@ -4,8 +4,9 @@
 The [export workflow](skills/discord-history-export/SKILL.md) and its existing
 manifest validators remain authoritative for scope, content and completion.
 
-Paths are relative to the verified PRIVATE companion. The standard data root
-contains `runs/<run-id>/run.json`, the run manifest, and immutable attempts with
+Paths are relative to the verified PRIVATE companion. `DISCORD_HISTORY_EXPORT_DATA_DIR`
+must select exactly its `data/` directory; the workflow rejects alternate roots before
+exporter probes, credential reads or writes. The data root contains `runs/<run-id>/run.json`, the run manifest, and immutable attempts with
 raw HTML/JSON, channel mappings, organized archives, indexes and media.
 Keep a selected final export or a run whose recovery or verification is still
 required. A retained run includes every file required by its manifest, including
@@ -27,3 +28,7 @@ Use skill-smith's shared `storage_contract.py` for metadata inventory and review
 retirement. It does not replace content validation, prove live Discord access or
 authorize an export. Confirm no exporter or organizer is active before removal.
 These rules do not schedule deletion or erase Git history.
+
+Standalone reorganize output must be one archive beneath `<companion>/data/organized/<archive-id>` and binds to `standalone_archive`. The export runner explicitly uses the separate `runs` owner beneath `data/runs/<run-id>/`. Organizer directories and every concrete output file are admitted through the canonical source storage contract before creation; source declarations never authorize arbitrary PRIVATE destinations. Lexical topology, current complete-route PRIVATE proof, committed HEAD, retention and effective ignore rules all remain enforced.
+
+New and resumed runs check the prospective organized destination before exporter probes and again before credentials. A nested PRIVATE worktree must still own the exact declared layout. Completed replay keeps its read-only topology checks and does not request write admission.

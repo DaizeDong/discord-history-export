@@ -34,7 +34,7 @@ git clone --recurse-submodules https://github.com/DaizeDong/discord-history-expo
 
 ## 私有 DATA 与凭据
 
-新建或使用一个独立的 **PRIVATE GitHub 仓库**，克隆到本机，把 `DISCORD_HISTORY_EXPORT_DATA_DIR` 指向其中的数据目录。子目录可以尚未创建；脚本会先确认所属工作树是私有仓，再在执行时创建。明确设置 DATA 路径后，脚本就以它为准：空值、无效路径或不允许的目标会直接失败，不会改用另一个伴生仓。未设置 DATA 路径时，脚本使用[共享解析器](guards/COMPANION.md)查找目录。写入前，共享 Guards 接口会根据本地可见性凭据核对工作树及所有实际发布地址。仓库必须已有提交，具体输出路径也不能被 Git 忽略。可见性凭据缺失或过期、PUBLIC/UNKNOWN 状态、没有提交的仓库、被忽略的路径，以及工具自己的源码目录都会被拒绝。普通仓库和 linked worktree 都支持。
+新建或使用一个独立的 **PRIVATE GitHub 仓库**，克隆到本机，把 `DISCORD_HISTORY_EXPORT_DATA_DIR` 指向固定的 `<companion>/data` 目录。伴生仓根目录或其他 DATA 目录会在调用导出程序、读取凭据和创建输出之前被拒绝。子目录可以尚未创建；脚本会先确认所属工作树是私有仓，再在执行时创建。明确设置 DATA 路径后，脚本就以它为准：空值、无效路径或不允许的目标会直接失败，不会改用另一个伴生仓。未设置 DATA 路径时，脚本使用[共享解析器](guards/COMPANION.md)查找目录。写入前，共享 Guards 接口会根据本地可见性凭据核对工作树及所有实际发布地址。仓库必须已有提交，具体输出路径也不能被 Git 忽略。可见性凭据缺失或过期、PUBLIC/UNKNOWN 状态、没有提交的仓库、被忽略的路径，以及工具自己的源码目录都会被拒绝。普通仓库和 linked worktree 都支持。
 
 所有已配置 remote 的实际 fetch 和 push 地址都必须对应 PRIVATE GitHub 仓库，检查包括 URL 改写和指定的发布 remote。自定义传输命令、Git 路由环境变量和 TLS 信任设置会被拒绝。共享 HTTP 策略逐条检查配置，包括限定 URL 的配置和空值重置前的值；允许开启证书验证和受支持的性能选项。每次目标验证都使用同一份经过检查的环境快照。请使用标准的 `https://github.com/OWNER/REPOSITORY.git` 地址。共享静态 SSH 策略也支持能确认指向 GitHub 的别名，前提是能识别客户端，并确认其保留默认的服务器信任设置。导出前需按 [Guards 配置说明](guards/COMPANION.md)准备或刷新本地可见性凭据。目标验证本身不会启动 SSH、`gh` 或网络请求。
 
@@ -70,7 +70,7 @@ HTML 校验依据 [DiscordChatExporter 2.47 模板](https://github.com/Tyrrrz/Di
 python "$SkillDir/scripts/reorganize.py" "$RawDir" "$OrganizedDir" "$ChannelsTxt"
 ```
 
-`$ChannelsTxt` 是已有的 DCE 频道列表。`$OrganizedDir` 必须位于确认过的私有伴生仓。输入文件名保留 `[%c]`；DCE 的 `%t` 对普通频道表示分类 ID，对 thread 表示父频道 ID。JSON 也可以通过 `channel.id` 提供身份。整理单一格式的已有存档可以算完成；完整导出则必须同时有两种格式。
+`$ChannelsTxt` 是已有的 DCE 频道列表。`$OrganizedDir` 必须位于确认过的私有伴生仓的 `<companion>/data/organized/<archive-id>/` 下。输入文件名保留 `[%c]`；DCE 的 `%t` 对普通频道表示分类 ID，对 thread 表示父频道 ID。JSON 也可以通过 `channel.id` 提供身份。整理单一格式的已有存档可以算完成；完整导出则必须同时有两种格式。
 
 整理脚本会在复制前检查全部源文件和目标文件；同时提供两种格式时，频道 ID 集合必须一致。脚本保留原始字节与嵌套媒体，检查本地链接。已有内容冲突或源目录改变都会被拒绝。相同输入重复运行不会改变结果，也不会通过覆盖文件解决重名问题。
 
@@ -90,3 +90,7 @@ English (`README.md`) · 中文 (`README_CN.md`)
 ## Roadmap · 更新日志 · License
 
 见 [ROADMAP.md](ROADMAP.md)、[CHANGELOG.md](CHANGELOG.md) 和 [LICENSE](LICENSE)（MIT）。
+
+独立整理命令只向 `<companion>/data/organized/<archive-id>/` 下写入；导出任务使用声明的运行目录。每个输出文件写入前都要确认对应的产物声明、有效的 PRIVATE 凭据、已有提交和 Git 可跟踪性。
+
+新建或续跑任务时，若嵌套工作树不符合产物布局，脚本会在探测导出程序或读取凭据前拒绝执行。复验已完成的存档仍然只读，不申请写入准入。

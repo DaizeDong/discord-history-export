@@ -45,6 +45,7 @@ organized/
 organized_json/
 *.html
 *.json
+!config.contract.json
 !.claude-plugin/plugin.json
 !skills/**/*.json
 !tests/fixtures/*.json
