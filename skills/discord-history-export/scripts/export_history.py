@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from export_core import (ExportError, NUMERIC_ID, contains, digest, files_under,
+from export_core import (ExportError, NUMERIC_ID, authorize_archive, contains, digest, files_under,
                          inspect_archive, json_bytes, organize, private_topology, resolve_data_dir,
                          summarize, validate_channel_sets)
 
@@ -255,12 +255,15 @@ def execute(args):
     previous = verify_existing(run, config, args.resume)
     attempt_number = previous.get("attempt", 0) + 1 if previous else 1
     attempt = run / "attempts" / f"{attempt_number:04d}"
+    organized = attempt / "organized"
     destinations = ((run / "run.json", False), (run / "manifest.json", False),
                     (run / "manifest.json.tmp", False), (attempt, True),
                     (attempt / "channels.txt", False), (attempt / "raw" / "html", True),
                     (attempt / "raw" / "json", True), (attempt / "organized" / "archive", True))
     for destination, directory in destinations:
         private_topology(destination, directory=directory)
+    if not previous or previous['status'] != 'complete':
+        authorize_archive(organized, 'runs', directory=True)
     if args.action == "plan":
         return {"schema_version": 1, "status": "planned", "configuration": config,
                 "companion": companion, "run_directory": str(run),
@@ -273,6 +276,7 @@ def execute(args):
     # External version/help probes must not leave a stale destination proof.
     for destination, directory in ((run, True), *destinations):
         private_topology(destination, directory=directory)
+    authorize_archive(organized, 'runs', directory=True)
     secret = credential_value(config["credential_ref"])
     environment = dict(os.environ)
     environment["DISCORD_TOKEN"] = secret
@@ -310,8 +314,7 @@ def execute(args):
         private_topology(raw, directory=True)
         entries = inspect_archive(raw)
         validate_formats(entries, config)
-        organized = attempt / "organized"
-        organized_manifest = organize(raw, organized, channels)
+        organized_manifest = organize(raw, organized, channels, artifact_id='runs')
         rebased = []
         for entry in organized_manifest["artifacts"]:
             entry = dict(entry)

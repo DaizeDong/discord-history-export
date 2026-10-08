@@ -179,7 +179,7 @@ class Source14BusinessContract(unittest.TestCase):
                     continue
                 with self.subTest(case=case["name"]):
                     harness = SyntheticExport14(root / str(index) / "organize", case)
-                    raw, target = harness.root / "raw", harness.data / "organized"
+                    raw, target = harness.root / "raw", harness.data / "organized" / "archive"
                     prior.fixtures.source14_archive(raw, case)
                     before = prior.hashes(raw)
                     if case["allowed"]:

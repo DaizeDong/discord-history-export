@@ -39,7 +39,7 @@ class Source12Contract(unittest.TestCase):
 
     def check_business_paths(self, case, allowed):
         h = self.harness(case)
-        raw, target = h.root / 'raw', h.data / 'organized'
+        raw, target = h.root / 'raw', h.data / 'organized' / 'archive'
         fixtures.source12_archive(raw, case)
         before = prior.hashes(raw)
         if allowed:

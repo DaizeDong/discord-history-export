@@ -157,7 +157,7 @@ def test_source9_css_import_dependencies_preserve_archive_integrity(h, monkeypat
     raw = h.root / "css-source"
     fixtures.source9_populate_css(raw, case)
     before = hashes(raw)
-    target = h.data / "css-archive"
+    target = h.data / "organized" / "css-archive"
     code, output = h.cli(monkeypatch, "reorganize.py", [raw, target, h.channels])
     assert hashes(raw) == before
     if allowed:
@@ -213,7 +213,7 @@ def test_source9_channel_export_and_standalone_allow_absent_guild(h, monkeypatch
     assert h.cli(monkeypatch, "export_history.py", args)[0] == 0
     assert h.cli(monkeypatch, "export_history.py", args)[0] == 0
     fixtures.source9_apply_guild(h.raw, case)
-    assert h.cli(monkeypatch, "reorganize.py", [h.raw, h.data / "standalone", h.channels])[0] == 0
+    assert h.cli(monkeypatch, "reorganize.py", [h.raw, h.data / "organized" / "standalone", h.channels])[0] == 0
 
 
 def source8_scan_fault(monkeypatch, directories, error_type):
@@ -236,7 +236,7 @@ def test_source8_source_inventory_failure_preserves_then_recovers(h, monkeypatch
     raw = h.root / "source8-raw"
     blocked = fixtures.source8_populate_tree(raw)
     before = hashes(raw)
-    target = h.data / "source8-organized"
+    target = h.data / "organized" / "source8-organized"
     with monkeypatch.context() as fault:
         attempts = source8_scan_fault(fault, [blocked], error_type)
         code, output = h.cli(fault, "reorganize.py", [raw, target, h.channels])
@@ -251,7 +251,7 @@ def test_source8_source_inventory_failure_preserves_then_recovers(h, monkeypatch
 def test_source8_readable_multidirectory_and_empty_channels(h, monkeypatch, empty):
     raw = h.root / "source8-raw"
     fixtures.source8_populate_tree(raw, empty=empty)
-    target = h.data / "source8-organized"
+    target = h.data / "organized" / "source8-organized"
     args = [raw, target, h.channels]
     assert h.cli(monkeypatch, "reorganize.py", args)[0] == 0
     manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
@@ -264,7 +264,7 @@ def test_source8_readable_multidirectory_and_empty_channels(h, monkeypatch, empt
 
 @pytest.mark.parametrize("error_type", [PermissionError, OSError, FileNotFoundError])
 def test_source8_destination_scan_fails_before_copy(h, monkeypatch, error_type):
-    target = h.data / "source8-existing"
+    target = h.data / "organized" / "source8-existing"
     blocked = fixtures.source8_unrecorded_file(target)
     before = hashes(target)
     with monkeypatch.context() as fault:
@@ -368,7 +368,7 @@ def test_source8_final_receipt_failure_cannot_publish_complete(h, monkeypatch, e
 
 @pytest.mark.parametrize("error_type", [PermissionError, OSError])
 def test_source8_file_read_failure_stays_rejected(h, monkeypatch, error_type):
-    target = h.data / "source8-organized"
+    target = h.data / "organized" / "source8-organized"
     original = Path.read_bytes
     unreadable = next(h.raw.rglob("*.html"))
     attempts = []
@@ -394,7 +394,7 @@ def test_source7_html_content_contract_before_organization(h, monkeypatch, case,
     fixtures.populate(raw, media=False)
     fixtures.source7_apply_case(raw, case)
     before = hashes(raw)
-    target = h.data / 'source7-organized'
+    target = h.data / "organized" / 'source7-organized'
     code, output = h.cli(monkeypatch, 'reorganize.py', [raw, target, h.channels])
     assert hashes(raw) == before
     if allowed:
@@ -463,7 +463,7 @@ def test_source7_empty_channel_completes_and_replays(h, monkeypatch):
 
 
 def test_organizer_integrity_and_idempotence(h, monkeypatch):
-    target = h.data / "organized"
+    target = h.data / "organized" / "archive"
     args = [h.raw, target, h.channels]
     assert h.cli(monkeypatch, "reorganize.py", args)[0] == 0
     manifest = json.loads((target / "manifest.json").read_text())
@@ -486,7 +486,7 @@ def test_organizer_integrity_and_idempotence(h, monkeypatch):
 def test_source5_stylesheet_contexts_preserve_archive_bytes(h, monkeypatch, case):
     raw = h.root / "stylesheet-case"
     fixtures.populate_stylesheet_case(raw, case)
-    target = h.data / "organized-css"
+    target = h.data / "organized" / "organized-css"
     code, output = h.cli(monkeypatch, "reorganize.py", [raw, target, h.channels])
     assert code == 0, output
     manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
@@ -500,7 +500,7 @@ def test_source5_stylesheet_contexts_preserve_archive_bytes(h, monkeypatch, case
 def test_source5_real_stylesheet_assets_remain_required(h, monkeypatch, case):
     raw = h.root / "missing-css-asset"
     fixtures.populate_stylesheet_case(raw, case, include_asset=False)
-    target = h.data / "organized-css"
+    target = h.data / "organized" / "organized-css"
     code, output = h.cli(monkeypatch, "reorganize.py", [raw, target, h.channels])
     assert code != 0 and "local media link" in output
     assert not target.exists()
@@ -511,9 +511,9 @@ def test_source5_real_stylesheet_assets_remain_required(h, monkeypatch, case):
 def test_source5_normalized_topology_refuses_before_any_copy(h, monkeypatch, case, existing_empty):
     raw = h.root / "topology-case"
     fixtures.populate_destination_topology(raw, case)
-    target = h.data / "organized-topology"
+    target = h.data / "organized" / "organized-topology"
     if existing_empty:
-        target.mkdir()
+        target.mkdir(parents=True)
     code, output = h.cli(monkeypatch, "reorganize.py", [raw, target, h.channels])
     assert target.exists() is existing_empty
     if existing_empty:
@@ -524,7 +524,7 @@ def test_source5_normalized_topology_refuses_before_any_copy(h, monkeypatch, cas
 def test_source5_valid_json_normalization_still_organizes(h, monkeypatch):
     raw = h.root / "valid-topology"
     fixtures.populate_destination_topology(raw, "valid-normalization")
-    target = h.data / "organized-topology"
+    target = h.data / "organized" / "organized-topology"
     code, output = h.cli(monkeypatch, "reorganize.py", [raw, target, h.channels])
     assert code == 0, output
     manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
@@ -536,12 +536,12 @@ def test_source5_valid_json_normalization_still_organizes(h, monkeypatch):
 
 @pytest.mark.parametrize("case", ["changed-source", "unrelated-target", "broken-media", "missing-id", "invalid-json"])
 def test_organizer_rejects_without_mutation(h, monkeypatch, case):
-    target = h.data / "organized"
+    target = h.data / "organized" / "archive"
     if case == "changed-source":
         assert h.cli(monkeypatch, "reorganize.py", [h.raw, target, h.channels])[0] == 0
         next(h.raw.rglob("*.html")).write_text("changed", encoding="utf-8")
     elif case == "unrelated-target":
-        target.mkdir()
+        target.mkdir(parents=True)
         (target / "unrelated.txt").write_text("SYNTHETIC_UNRELATED", encoding="utf-8")
     elif case == "broken-media":
         next(h.raw.rglob("*.bin")).unlink()
@@ -566,11 +566,11 @@ def test_organizer_rejects_without_mutation(h, monkeypatch, case):
 @pytest.mark.parametrize("visibility", ["PUBLIC", "UNKNOWN", ""])
 def test_organizer_private_boundary(h, monkeypatch, visibility):
     h.visibility = visibility
-    target = h.data / "organized"
+    target = h.data / "organized" / "archive"
     code, output = h.cli(monkeypatch, "reorganize.py", [h.raw, target, h.channels])
     assert code != 0
     assert not target.exists()
-    assert "verified PRIVATE visibility and identity" in output
+    assert "Source artifact admission refused" in output and "PRIVATE" in output
     assert any("get-url" in argv for argv, _ in h.calls)
 
 
@@ -731,7 +731,7 @@ def test_local_credential_reference(h, monkeypatch, kind):
 def test_repeated_thread_names_keep_ids(h, monkeypatch):
     raw = h.root / "synthetic-threads"
     fixtures.populate(raw, channels=("thread", "other_thread"))
-    target = h.data / "threads"
+    target = h.data / "organized" / "threads"
     code, output = h.cli(monkeypatch, "reorganize.py", [raw, target, h.channels])
     assert code == 0, output
     manifest = json.loads((target / "manifest.json").read_text())
@@ -740,7 +740,7 @@ def test_repeated_thread_names_keep_ids(h, monkeypatch):
 
 
 def test_rerun_checks_all_destinations_before_copy(h, monkeypatch):
-    target = h.data / "organized"
+    target = h.data / "organized" / "archive"
     args = [h.raw, target, h.channels]
     assert h.cli(monkeypatch, "reorganize.py", args)[0] == 0
     next(target.rglob("*.html")).write_text("SYNTHETIC_TAMPER", encoding="utf-8")
@@ -752,7 +752,7 @@ def test_rerun_checks_all_destinations_before_copy(h, monkeypatch):
 def test_one_format_organizer_is_complete(h, monkeypatch):
     raw = h.root / "synthetic-html-only"
     fixtures.populate(raw, formats=("html",))
-    target = h.data / "html-only"
+    target = h.data / "organized" / "html-only"
     assert h.cli(monkeypatch, "reorganize.py", [raw, target, h.channels])[0] == 0
     manifest = json.loads((target / "manifest.json").read_text())
     assert manifest["status"] == "complete"
@@ -796,7 +796,7 @@ def test_shared_resolver_uses_canonical_consumer_root(tmp_path, monkeypatch):
 
 def test_mixed_organizer_formats_must_reconcile(h, monkeypatch):
     next(h.raw.rglob("*.json")).unlink()
-    target = h.data / "mismatched-formats"
+    target = h.data / "organized" / "mismatched-formats"
     code, output = h.cli(monkeypatch, "reorganize.py", [h.raw, target, h.channels])
     assert code == 1, output
     assert not target.exists()
@@ -1024,17 +1024,17 @@ def test_source6_nested_run_parent_private_proof_precedes_activity(h, monkeypatc
     before = hashes(h.data)
     tree_before = sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*'))
     code, output = source6_execute(h, monkeypatch, credential, case['action'])
+    assert code == 1, output
+    assert reads == []
+    assert all(argv[0] != str(h.exporter) for argv, _ in h.calls)
+    assert hashes(h.data) == before
+    assert sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*')) == tree_before
     if case['allowed']:
-        assert code == 0, output
-        assert reads == ([] if case['action'] == 'plan' else [credential])
+        assert 'Source artifact admission refused' in output
+        assert 'undeclared or ambiguous path' in output
     else:
-        assert code == 1, output
-        assert reads == []
-        assert all(argv[0] != str(h.exporter) for argv, _ in h.calls)
-        assert hashes(h.data) == before
-        assert sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*')) == tree_before
         assert 'verified PRIVATE visibility and identity' in output
-        assert any('get-url' in argv and Path(argv[2]) == nested for argv, _ in h.calls)
+    assert any('get-url' in argv and Path(argv[2]) == nested for argv, _ in h.calls)
 
 
 @pytest.mark.parametrize('case', [case for case in fixtures.source6_nested_destination_cases() if not case['allowed']])
@@ -1093,7 +1093,7 @@ def test_source6_completed_replay_accepts_proven_private_nesting(h, monkeypatch,
 @pytest.mark.parametrize('case', [case for case in fixtures.source6_nested_destination_cases()
                                 if case['action'] == 'execute'])
 def test_source6_standalone_organizer_checks_nested_target_before_copy(h, monkeypatch, case):
-    target = h.data / 'source6-organized'
+    target = h.data / "organized" / 'source6-organized'
     nested = fixtures.source6_nested_repository(target / 'archive', linked=case['linked'])
     h.repositories[nested] = (case['repository'], case['visibility'])
     before = hashes(h.data)
@@ -1104,5 +1104,6 @@ def test_source6_standalone_organizer_checks_nested_target_before_copy(h, monkey
         assert 'PRIVATE' in output
         assert 'verified PRIVATE visibility and identity' in output
     else:
-        assert 'Existing output contains unrelated directories' in output
+        assert 'Source artifact admission refused' in output
+        assert 'undeclared or ambiguous path' in output
     assert any('get-url' in argv and Path(argv[2]) == nested for argv, _ in h.calls)
