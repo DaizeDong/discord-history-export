@@ -13,11 +13,22 @@ The complete source tree requires its guards submodule. Read [reference/credenti
 
 Resolve the installed skill directory before invoking `scripts/export_history.py`. Paths in commands must be absolute when running from an unrelated current directory. The helper discovers the canonical source tree itself, including through an installed alias.
 
-Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to exactly `<companion>/data` in a separate private Git companion. An explicit DATA selection is authoritative; invalid or empty values fail without selecting a different companion. A missing child directory is allowed only beneath a verified private worktree and is created during execution, never during plan. Without a DATA override, the helper uses the authoritative shared resolver for discovery. The public Guards proof checks the enclosing worktree and all physical and effective publication routes against its local visibility receipt. The helper also requires committed HEAD and an exact output path that Git does not ignore. Missing or stale receipts, PUBLIC/UNKNOWN visibility, unversioned or unborn repositories, ignored paths, and the consumer's own checkout are rejected before credentials, exporter calls, or output writes. Private linked Git worktrees are valid. Real archives and run history stay versioned in that private companion; credentials stay outside version control.
+Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to exactly `<companion>/data` in a separate
+PRIVATE Git companion. Invalid or empty explicit selections fail; otherwise the
+shared resolver discovers storage. A missing child is created during execution,
+never during plan. Committed HEAD, current local visibility proof, source-owned
+artifact layout and effective Git trackability are required before credentials,
+exporter calls or writes. Normal and private linked worktrees are supported.
+The standalone organizer uses `data/organized/<archive-id>/`; the runner uses
+`data/runs/<run-id>/`. Keep archives and history versioned in the PRIVATE companion.
+[DATA.md](../../DATA.md) is authoritative for route and nested-repository policy,
+rechecks after exporter probes, concrete-file admission and read-only replay.
 
 Credentials are local references only: `env:VARIABLE_NAME` or `file:ABSOLUTE_PATH`. Never ask the user to paste a credential into a conversation. The helper reads the reference only for execution and passes the value via the exporter's child `DISCORD_TOKEN` environment. Do not construct a token command-line flag. No browser credential extraction is part of this workflow.
 
-Every effective fetch and push URL of every configured remote must prove PRIVATE visibility on github.com. Git routing overrides, custom transports, and TLS trust overrides are refused. The bundled shared HTTP policy checks every configuration occurrence, including URL scopes and empty resets, while allowing enabled certificate verification and supported performance options. Each proof uses one validated environment snapshot. Use canonical GitHub HTTPS URLs. The shared static policy also accepts SSH, including aliases with a proven GitHub hostname, only when it recognizes the client and preserves default server trust. Unsupported routing or trust settings fail closed. Prepare or refresh the local receipt through the [Guards visibility setup](../../guards/COMPANION.md) before export. Proof itself invokes no SSH, `gh`, or network command. Plan, resume, and completed replay also check the selected run tree and existing nested repositories before exporter probes, credential reads, or output writes.
+Prepare or refresh the local visibility receipt through
+[Guards setup](../../guards/COMPANION.md) before export. Proof itself invokes no
+SSH, `gh` or network command. Credentials remain outside version control.
 
 ## Export
 
@@ -34,16 +45,18 @@ Every directory inventory must finish successfully. On enumeration errors, resto
 
 Preserve the positional interface: `python scripts/reorganize.py RAW_DIR ORGANIZED_DIR CHANNELS_TXT`. Supply absolute paths from other working directories. `ORGANIZED_DIR` must be under `<companion>/data/organized/<archive-id>/` and pass the same private Git boundary.
 
-The organizer preserves source bytes, ID folders, repeated-title identities, and nested media links. It writes `INDEX.md` plus a manifest with every source/destination path, channel ID, byte count, and SHA-256. JSON contributes counts from its actual `messages` array. A single-format input is complete for that explicitly supplied archive; mixed formats must have matching channel ID sets. Conflicts, unidentified files, broken local links, and changed input are rejected before copying; nothing is overwritten to resolve a collision.
+The organizer verifies the supplied formats before copying and refuses collisions. Read [channel identity and receipts](reference/archive-validation.md#channel-identity-and-receipts) for source preservation, manifests, format completeness and rejection rules.
 
-Supported HTML needs an HTML5 doctype, closed sibling `preamble`, `chatlog`, and `postamble` sections in order, and an `Exported N message(s)` entry inside the postamble, following the DiscordChatExporter 2.47 template. Empty chatlogs are valid. Localized digit grouping and optional `html`/`body` end tags are accepted. Empty files, plain-text errors, generic error pages, and missing completion footers are rejected during organization, export, and completed replay. Text-only element contents and self-closing non-void elements cannot supply completion; CSS dependency checks recognize escaped identifiers. If a historical complete run fails content validation, preserve it and use a new run ID; only incomplete runs can retry into a new attempt with `--resume`.
+Follow [archive validation](reference/archive-validation.md) for the supported
+DCE 2.47 HTML structure, empty chatlogs, completion footers, JSON counts and portable
+links. Validation runs during organization, export completion and completed replay.
+Preserve a historical complete run that fails validation and use a new run ID;
+only incomplete runs can retry into a new attempt with `--resume`.
 
-Archives must work when opened from local files. Reject scheme-relative URLs (`//host/path`), which inherit `file:` in that context; keep explicit HTTP(S) remote URLs distinct from relative local paths. Active HTML `<base href>` is unsupported and fails before organization or completion, including empty values. Export without a base URL. A base element without `href` or inside inert template content does not alter the document base.
-
-The destination is proved again after exporter version/help probes, before reading credentials. Existing replay files and dynamically named raw artifacts are checked for exact Git ignore status. Ignored raw artifacts remain in the private companion with a partial failure; they cannot produce a complete result. The helper does not stage, commit, or push archives.
+The runner rechecks the destination after exporter probes and before reading
+credentials. Ignored raw artifacts remain private and produce partial failure.
+The helper does not stage, commit or push archives.
 
 ## Evidence boundary
 
 Synthetic tests and an installed-directory alias prove local behavior only. They do not prove live Discord access, exporter behavior on an actual account, plugin catalog activation, or a production run. Report those boundaries explicitly. Remote media URLs still need a network connection unless media was downloaded successfully.
-
-The standalone organizer writes only below `<companion>/data/organized/<archive-id>/`. Runner-organized output remains under its declared `data/runs/<run-id>/` tree. Every actual output needs the matching source artifact owner, current PRIVATE proof, a committed HEAD and effective Git trackability before creation.

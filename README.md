@@ -34,15 +34,25 @@ An existing clone needs `git submodule update --init --recursive`. Missing guard
 
 ## Private DATA and credentials
 
-Create or use a separate **PRIVATE GitHub repository** and clone it locally. Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to exactly `<companion>/data`; a missing child directory is created only during execution after its enclosing worktree is verified. An explicit DATA override is authoritative: empty, invalid, or disallowed selections fail without falling through to another companion. The helper uses the [shared companion interfaces](guards/COMPANION.md) for discovery and proof. Before writing, it verifies every physical and effective publication route against the local Guards visibility receipt, checks committed HEAD, and checks exact output paths and known future directories with Git's ignore rules. Prepare or refresh that receipt through the Guards visibility setup before export; the helper does not refresh it or contact GitHub. Normal and linked Git worktrees are supported. PUBLIC, UNKNOWN, missing or stale receipts, unborn repositories, ignored output paths, and the tool's own checkout are rejected.
+Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to exactly `<companion>/data` in a separate
+PRIVATE Git companion. An explicit empty or invalid selection fails; a missing
+`data/` child is created only during execution after verification. Without an
+override, shared companion discovery applies. Writes require committed HEAD,
+current local Guards visibility proof, the declared artifact layout and effective
+Git trackability. [DATA.md](DATA.md) defines route policy, nested-worktree checks,
+source-owned admission and retention. The helper does not refresh the visibility
+receipt, contact GitHub, or stage, commit or push archives.
 
-Every configured remote's effective fetch and push destinations must identify a PRIVATE GitHub repository, including URL rewrites and selected publication remotes. Custom transports, Git routing overrides, and custom TLS trust settings are refused. The bundled shared HTTP policy checks every configuration occurrence, including URL-scoped entries and values before an empty reset; enabled certificate verification and supported performance options are allowed. Each destination proof uses one validated environment snapshot. Use canonical `https://github.com/OWNER/REPOSITORY.git` URLs. The bundled shared static SSH verifier also supports canonical `git@github.com` destinations when it recognizes the client and proves canonical routing with default trust. A missing verifier, unsupported configuration, or unproven SSH alias fails with HTTPS setup guidance. Verification never invokes SSH.
+Keep an authorized bot credential in a local environment variable or an owner-only
+file outside the public checkout and version control. `--credential-ref` accepts
+only `env:VARIABLE_NAME` or `file:ABSOLUTE_PATH`; do not put its value in a
+conversation or command line. Execution passes it through the child `DISCORD_TOKEN`
+environment, captures exporter output and removes the credential from saved channel
+listings. Raw failure output is never echoed or logged.
 
-Plan, execute, resume, and completed replay check the chosen run tree and existing nested repositories before reading credentials, probing the exporter, or writing output. PUBLIC or unproven nested repositories are refused. Private linked worktrees remain valid; Git administration is excluded from archive receipts.
-
-Keep the authorized bot credential in a local environment variable or a local file outside the public checkout. Supply only `env:VARIABLE_NAME` or `file:ABSOLUTE_PATH` as `--credential-ref`. Credential files should have owner-only access and be excluded from version control. No credential value belongs in an assistant conversation or command line. The helper reads the value only during execution and places it in the exporter's `DISCORD_TOKEN` environment variable. Exporter stdout/stderr is captured, and raw failure output is never echoed or logged. The channel listing is saved with the credential value removed.
-
-The current source-proven transport release is **2.47**. Its help need not spell out the environment variable; the tagged source establishes that binding. An unknown release must explicitly establish the same environment capability in its command help or preflight fails. See [credential transport evidence](skills/discord-history-export/reference/credential-transport.md).
+[Credential transport evidence](skills/discord-history-export/reference/credential-transport.md)
+defines source-proven release **2.47** and the explicit help proof required from
+unknown releases. Plan and completed replay do not read credential values.
 
 ## Plan and execute
 
@@ -56,11 +66,11 @@ An identical completed invocation verifies the existing files and returns withou
 
 Directory access and I/O errors stop source inspection, destination checks, and completed replay. Restore access before retrying. Existing files and the last saved manifest remain intact when the full inventory cannot be recorded. If a later retry cannot reconcile that incomplete attempt, preserve the run and choose a new run ID as directed by the error.
 
-HTML validation follows the [DiscordChatExporter 2.47 template](https://github.com/Tyrrrz/DiscordChatExporter/blob/2.47/DiscordChatExporter.Core/Exporting/PreambleTemplate.cshtml): an HTML5 doctype, closed sibling `preamble`, `chatlog`, and `postamble` sections in that order, and an `Exported N message(s)` completion entry inside the postamble. The chatlog may be empty; a completed zero-message channel is valid. Localized digit grouping and optional closing `html`/`body` tags are accepted. Zero-byte files, plain-text errors, generic service pages, and documents missing the completion footer fail validation. Markup inside text-only elements cannot supply the archive sections, and self-closing non-void elements are rejected. CSS links support escaped identifiers as well as escaped values. This checks the supported document structure; message totals still come from the JSON messages array.
-
-The same content check runs before organization, before export completion, and when reusing a completed run. If an older run is marked complete but its HTML fails this check, preserve that run and export under a new run ID. `--resume` preserves earlier attempts for partial or failed runs; it does not rewrite a completed run's evidence.
-
-Portable archives open directly from disk. A scheme-relative URL such as `//example.com/image.png` would inherit `file:`, so it is rejected; use an explicit `https://` or `http://` URL for remote resources. Active HTML `<base href>` elements are unsupported and rejected, including empty values. Export without a base URL so relative links keep their ordinary meaning. A `<base>` without `href`, or one inside inert template content, does not change the document base.
+[Archive validation](skills/discord-history-export/reference/archive-validation.md)
+defines the supported DCE 2.47 HTML structure, zero-message completion, JSON counts
+and portable link rules. The same validation runs during organization, completion
+and completed replay. A historical completed run that fails validation must be
+preserved and exported with a new run ID; `--resume` applies to incomplete runs.
 
 ## Organize existing exports
 
@@ -74,7 +84,10 @@ python "$SkillDir/scripts/reorganize.py" "$RawDir" "$OrganizedDir" "$ChannelsTxt
 
 The organizer checks the entire source and destination set before copying. When both formats are supplied, their channel ID sets must match. It preserves source bytes and nested media, validates local links, and refuses conflicting output or a different source root. Identical reruns are idempotent. No file is overwritten to resolve a name conflict.
 
-The destination is proved again after exporter version/help probes, before reading credentials. Existing replay files and dynamically named raw artifacts are checked for exact Git ignore status. Ignored raw artifacts remain in the private companion with a partial failure; they cannot produce a complete result. The helper does not stage, commit, or push archives.
+Source bytes, channel identities and media dependencies are defined in
+[archive validation](skills/discord-history-export/reference/archive-validation.md).
+Both organizer and runner use the [storage admission rules](DATA.md), including
+rechecking after exporter probes and refusing ignored raw artifacts.
 
 ## Verification and limits
 
@@ -92,7 +105,3 @@ English (`README.md`) · 中文 (`README_CN.md`)
 ## Roadmap · Changelog · License
 
 See [ROADMAP.md](ROADMAP.md), [CHANGELOG.md](CHANGELOG.md), and [LICENSE](LICENSE) (MIT).
-
-The positional organizer requires its destination under `<companion>/data/organized/<archive-id>/`. The runner uses its declared run namespace. Both bind every organized output to the corresponding source artifact before writing; an arbitrary PRIVATE directory is insufficient.
-
-New and resumed runs reject nested worktrees that cannot own this layout before probing the exporter or reading credentials. Completed replay verifies the existing archive without requesting write admission.

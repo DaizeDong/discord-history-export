@@ -34,15 +34,21 @@ git clone --recurse-submodules https://github.com/DaizeDong/discord-history-expo
 
 ## 私有 DATA 与凭据
 
-新建或使用一个独立的 **PRIVATE GitHub 仓库**，克隆到本机，把 `DISCORD_HISTORY_EXPORT_DATA_DIR` 指向固定的 `<companion>/data` 目录。伴生仓根目录或其他 DATA 目录会在调用导出程序、读取凭据和创建输出之前被拒绝。子目录可以尚未创建；脚本会先确认所属工作树是私有仓，再在执行时创建。明确设置 DATA 路径后，脚本就以它为准：空值、无效路径或不允许的目标会直接失败，不会改用另一个伴生仓。未设置 DATA 路径时，脚本使用[共享解析器](guards/COMPANION.md)查找目录。写入前，共享 Guards 接口会根据本地可见性凭据核对工作树及所有实际发布地址。仓库必须已有提交，具体输出路径也不能被 Git 忽略。可见性凭据缺失或过期、PUBLIC/UNKNOWN 状态、没有提交的仓库、被忽略的路径，以及工具自己的源码目录都会被拒绝。普通仓库和 linked worktree 都支持。
+将 `DISCORD_HISTORY_EXPORT_DATA_DIR` 指向独立 PRIVATE Git 伴生仓准确的
+`<companion>/data`。显式选择为空或无效时直接失败；缺少的 `data/` 子目录只在执行时、
+验证通过后创建。未设置时使用共享伴生仓发现。写入需要已有提交、有效的本地 Guards
+可见性记录、声明的产物布局和 Git 可跟踪性。[DATA.md](DATA.md) 规定传输策略、
+嵌套工作树检查、产物写入检查和保留规则。脚本不刷新可见性记录，不请求 GitHub，
+也不自动暂存、提交或推送存档。
 
-所有已配置 remote 的实际 fetch 和 push 地址都必须对应 PRIVATE GitHub 仓库，检查包括 URL 改写和指定的发布 remote。自定义传输命令、Git 路由环境变量和 TLS 信任设置会被拒绝。共享 HTTP 策略逐条检查配置，包括限定 URL 的配置和空值重置前的值；允许开启证书验证和受支持的性能选项。每次目标验证都使用同一份经过检查的环境快照。请使用标准的 `https://github.com/OWNER/REPOSITORY.git` 地址。共享静态 SSH 策略也支持能确认指向 GitHub 的别名，前提是能识别客户端，并确认其保留默认的服务器信任设置。导出前需按 [Guards 配置说明](guards/COMPANION.md)准备或刷新本地可见性凭据。目标验证本身不会启动 SSH、`gh` 或网络请求。
+Bot 凭据保存在本地环境变量或仅所有者可读的文件中，文件须位于公开源码目录和版本管理
+之外。`--credential-ref` 只接收 `env:VARIABLE_NAME` 或 `file:ABSOLUTE_PATH`；
+不要把凭据值写入对话或命令行。执行时通过子进程的 `DISCORD_TOKEN` 环境变量传递，
+导出程序输出由脚本捕获，保存频道列表前会移除凭据。原始失败输出不会回显或记录。
 
-预览、执行、重试和已完成任务的复验都会先检查所选运行目录及其中已有的嵌套仓库。导出程序的版本和帮助探测结束后，还会再次检查目标，再读取 Bot 凭据。已有归档文件和导出程序新生成的原始文件都要通过逐文件的 Git 忽略规则检查。若原始文件被忽略，文件会保留在私有伴生仓中，任务报部分失败，不会显示完成。脚本不会自动暂存、提交或推送存档。公开或无法确认可见性的嵌套仓库会被拒绝；Git 管理文件不计入归档清单。
-
-Bot 凭据放在本机环境变量中，或放在公开源码目录之外的本地文件里。`--credential-ref` 只接收 `env:VARIABLE_NAME` 或 `file:ABSOLUTE_PATH`。凭据文件应只允许所有者读取，并排除在版本管理之外。不要把凭据值发到助手对话或写进命令行。脚本仅在执行时读取值，通过子进程的 `DISCORD_TOKEN` 环境变量传给导出工具。stdout/stderr 由脚本捕获，失败时不会回显或记录原始输出；保存频道列表前会移除其中的凭据值。
-
-目前有源码依据的环境变量传递版本是 **2.47**。帮助文本不必写出该环境变量，绑定关系由对应 tag 的源码证明。未知版本需要在导出命令帮助里明确支持同一环境变量，否则预检失败。详见[凭据传递依据](skills/discord-history-export/reference/credential-transport.md)。
+[凭据传递依据](skills/discord-history-export/reference/credential-transport.md)
+规定有源码证明的 **2.47** 版本，以及未知版本必须在命令帮助中明确提供的环境变量支持。
+预览和已完成任务的复验不读取凭据值。
 
 ## 预览与执行
 
@@ -56,11 +62,10 @@ Bot 凭据放在本机环境变量中，或放在公开源码目录之外的本�
 
 扫描目录时遇到权限或 I/O 错误，源文件检查、目标位置检查和已完成任务的复验都会停止。恢复访问后再重试。无法记录完整文件清单时，已有文件和上次保存的清单会保留；如果重试时无法核对这次未完成的尝试，请按报错指引保留原任务，改用新的 run ID。
 
-HTML 校验依据 [DiscordChatExporter 2.47 模板](https://github.com/Tyrrrz/DiscordChatExporter/blob/2.47/DiscordChatExporter.Core/Exporting/PreambleTemplate.cshtml)：文件需要 HTML5 doctype，依次包含已经闭合、处于同一层级的 `preamble`、`chatlog` 和 `postamble` 区域，并在 postamble 中包含 `Exported N message(s)` 完成记录。chatlog 可以为空，零消息频道的完整导出仍然有效；数字分组格式及可省略的 `html`、`body` 结束标签也受支持。零字节文件、纯文本报错、普通服务错误页或缺少完成记录的文档会被拒绝。文本元素中的标签不会被当作归档结构；非空元素的自闭合写法会被拒绝。CSS 链接支持标识符和值中的转义。这里检查的是导出文档结构，消息数量仍从 JSON 的消息列表计算。
-
-整理存档、确认导出完成和复用已完成任务时，都会执行同一套内容校验。旧任务即使标为 complete，只要 HTML 不符合上述要求，就需要保留原任务，用新的 run ID 重新导出。`--resume` 用于部分完成或失败的任务，会保留之前各次尝试，不会覆盖已完成任务的证据。
-
-存档需要能直接从本地打开。`//example.com/image.png` 这类省略协议的地址会继承 `file:`，因此会被拒绝；远程资源请使用明确的 `https://` 或 `http://` 地址。当前不支持会改变文档基准地址的 HTML `<base href>`，即使值为空也会报错。请从导出源移除它，让相对链接按文件所在目录解析。不带 `href` 的 `<base>`，以及惰性 template 内容中的 `<base>`，不会改变文档基准地址。
+[归档校验规范](skills/discord-history-export/reference/archive-validation.md)
+规定 DCE 2.47 的 HTML 结构、零消息完成记录、JSON 消息数量和本地链接规则。
+整理、确认完成和复验都会执行同一套校验。旧的已完成任务若校验失败，须保留原任务，
+使用新的 run ID 导出；`--resume` 仅用于未完成的任务。
 
 ## 整理已有导出
 
@@ -73,6 +78,10 @@ python "$SkillDir/scripts/reorganize.py" "$RawDir" "$OrganizedDir" "$ChannelsTxt
 `$ChannelsTxt` 是已有的 DCE 频道列表。`$OrganizedDir` 必须位于确认过的私有伴生仓的 `<companion>/data/organized/<archive-id>/` 下。输入文件名保留 `[%c]`；DCE 的 `%t` 对普通频道表示分类 ID，对 thread 表示父频道 ID。JSON 也可以通过 `channel.id` 提供身份。整理单一格式的已有存档可以算完成；完整导出则必须同时有两种格式。
 
 整理脚本会在复制前检查全部源文件和目标文件；同时提供两种格式时，频道 ID 集合必须一致。脚本保留原始字节与嵌套媒体，检查本地链接。已有内容冲突或源目录改变都会被拒绝。相同输入重复运行不会改变结果，也不会通过覆盖文件解决重名问题。
+
+完整的文件身份、源字节和媒体依赖规则见[归档校验](skills/discord-history-export/reference/archive-validation.md)。
+整理与导出都按 [DATA.md](DATA.md) 检查存储，包括探测导出程序后再次验证目标，
+以及拒绝将被 Git 忽略的原始文件报告为完整结果。
 
 ## 验证与限制
 
@@ -90,7 +99,3 @@ English (`README.md`) · 中文 (`README_CN.md`)
 ## Roadmap · 更新日志 · License
 
 见 [ROADMAP.md](ROADMAP.md)、[CHANGELOG.md](CHANGELOG.md) 和 [LICENSE](LICENSE)（MIT）。
-
-独立整理命令只向 `<companion>/data/organized/<archive-id>/` 下写入；导出任务使用声明的运行目录。每个输出文件写入前都要确认对应的产物声明、有效的 PRIVATE 凭据、已有提交和 Git 可跟踪性。
-
-新建或续跑任务时，若嵌套工作树不符合产物布局，脚本会在探测导出程序或读取凭据前拒绝执行。复验已完成的存档仍然只读，不申请写入准入。
