@@ -66,14 +66,10 @@ def _worktree_root(start):
 def private_destination(path, *, directory=False, data_root=False):
     """Check that a destination sits in a separate companion worktree, by path only.
 
-    Publication state (the companion being PRIVATE) is enforced at commit time by the
-    repository hooks and CI; the runtime runs no git or gh subprocess to prove it.
+    The companion is the nearest enclosing .git marker and must lie outside this source
+    tree. Returns (target, companion root). Publication state (the companion being
+    PRIVATE) is enforced at commit time by the repository hooks and CI.
     """
-    target, root = _companion_destination(path, directory=directory, data_root=data_root)
-    return target, root.name
-
-
-def _companion_destination(path, *, directory=False, data_root=False):
     target = destination_path(path)
     if contains(SOURCE_ROOT, target):
         raise ExportError("Output cannot be inside the tool's own source checkout. Select its private companion.")
@@ -85,11 +81,7 @@ def _companion_destination(path, *, directory=False, data_root=False):
     root = _worktree_root(ancestor)
     if root is None:
         raise ExportError("Output must be inside a private Git companion worktree.")
-    if any(os.path.lexists(outer / ".git") for outer in root.parents):
-        raise ExportError("Output is inside a nested Git repository. Select a path in the companion itself.")
     root = destination_path(root)
-    if not contains(root, target):
-        raise ExportError("Output has no enclosing Git worktree.")
     if contains(SOURCE_ROOT, root) or contains(root, SOURCE_ROOT):
         raise ExportError("The tool's consumer worktree cannot also be the DATA companion.")
     if data_root and target != root / "data":
@@ -98,8 +90,6 @@ def _companion_destination(path, *, directory=False, data_root=False):
         raise ExportError("A source repository cannot also be the DATA companion.")
     if directory and target.is_file():
         raise ExportError("A directory destination is an existing file.")
-    if destination_path(path) != target:
-        raise ExportError("Output topology changed while checking the private companion.")
     return target, root
 
 
@@ -126,7 +116,7 @@ def authorize_archive(path, artifact_id, *, directory=False):
     if prefix is None:
         raise ExportError(f"Unknown archive artifact {artifact_id!r}; no layout is declared for it.")
     lexical = Path(path).expanduser().absolute()
-    target, root = _companion_destination(lexical, directory=directory)
+    target, root = private_destination(lexical, directory=directory)
     parts = target.relative_to(root).parts
     if len(parts) <= len(prefix) or tuple(p.lower() for p in parts[:len(prefix)]) != prefix:
         raise ExportError(f"The {artifact_id} artifact must be written beneath "
@@ -137,20 +127,21 @@ def authorize_archive(path, artifact_id, *, directory=False):
 
 
 def private_topology(path, *, directory=False):
-    """Check the chosen tree before reading credentials, probing exporters, or writing."""
-    target, companion = private_destination(path, directory=directory)
+    """Check the chosen tree before reading credentials, probing exporters, or writing.
+
+    Returns (target, companion root). One walk checks every entry for links and refuses
+    a nested repository below the companion root.
+    """
+    target, root = private_destination(path, directory=directory)
     if target.is_dir():
         for folder, dirs, files in os.walk(target, followlinks=False, onerror=enumeration_error):
             current = Path(folder)
             for name in dirs + files:
                 destination_path(current / name)
-            for name in files:
-                if name != ".git":
-                    private_destination(current / name)
-            if current != target:
-                private_destination(current, directory=True)
+            if ".git" in dirs + files and current != root:
+                raise ExportError("Output is inside a nested Git repository. Select a path in the companion itself.")
             dirs[:] = [name for name in dirs if name != ".git"]
-    return target, companion
+    return target, root
 
 
 def resolve_data_dir():
@@ -717,7 +708,7 @@ def organize(raw, destination, channels_file, *, artifact_id='standalone_archive
     validate_channel_sets(entries)
     manifest = {"schema_version": 1, "status": "complete", "run_id": destination.name,
                 "input": {"root": str(raw), "channels_sha256": digest(Path(channels_file).read_bytes())},
-                "companion": companion, "channels": channels, "artifacts": entries,
+                "companion": companion.name, "channels": channels, "artifacts": entries,
                 "summary": summarize(entries), "issues": []}
     output = {entry["path"]: (raw / entry["source"]).read_bytes() for entry in entries}
     if any(digest(output[entry["path"]]) != entry["sha256"] for entry in entries):

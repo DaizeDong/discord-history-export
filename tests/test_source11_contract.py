@@ -47,7 +47,6 @@ class SyntheticExport:
         self.data = self.workspace["data"]
         self.env = dict(self.workspace["environment"])
         self.calls, self.kind, self.case = [], kind, case
-        self.config, self.inject = None, None
         self.core = load_complete("source11_core", SCRIPTS / "export_core.py")
         self.core.os = Proxy(os, environ=self.env)
         self.core.subprocess = Proxy(subprocess, run=self.run)
@@ -69,29 +68,7 @@ class SyntheticExport:
     def run(self, argv, **kwargs):
         args = list(map(str, argv))
         self.calls.append((args, dict(kwargs.get("env", {}))))
-        slug = self.workspace["slug"]
-        if args[0] == "git":
-            if "--absolute-git-dir" in args:
-                output = str(self.workspace["companion"] / ".git")
-            elif "--verify" in args:
-                output = "1" * 40
-            elif "check-ignore" in args:
-                return subprocess.CompletedProcess(args, 1, stdout="", stderr="")
-            elif "rev-parse" in args:
-                output = str(self.workspace["companion"])
-            elif "config" in args:
-                output = "remote.origin.url\nhttps://github.com/" + slug + ".git\0"
-                if self.config is not None:
-                    output += self.config[0] + "\n" + self.config[1] + "\0"
-            elif "get-url" in args:
-                output = "https://github.com/" + slug + ".git"
-            elif args[-1] == "remote":
-                output = "origin"
-            else:
-                raise AssertionError("Unexpected synthetic Git command")
-            if self.inject and len(self.calls) == 1:
-                self.env.update(self.inject)
-        elif args[0] == self.workspace["exporter"]:
+        if args[0] == self.workspace["exporter"]:
             if "--version" in args:
                 output = "2.47"
             elif "--help" in args:

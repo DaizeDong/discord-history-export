@@ -43,7 +43,7 @@ def native(tmp_path, monkeypatch):
 def test_native_destination_check_is_path_only(native, relative):
     target = native.repository / relative
     before = native.files()
-    assert native.core.private_destination(target) == (target.resolve(), "companion")
+    assert native.core.private_destination(target) == (target.resolve(), native.repository.resolve())
     assert native.files() == before
     assert native.calls == []
 
@@ -53,7 +53,7 @@ def test_native_linked_worktree_marker_is_supported(native):
     linked.mkdir()
     (linked / ".git").write_text("gitdir: ../companion/.git/worktrees/linked\n", encoding="utf-8")
     target = linked / "data/future.json"
-    assert native.core.private_destination(target) == (target.resolve(), "linked")
+    assert native.core.private_destination(target) == (target.resolve(), linked.resolve())
     assert not target.parent.exists()
 
 

@@ -248,10 +248,13 @@ def partial_entries(raw, run):
 
 def execute(args):
     config = configuration(args)
-    data, companion = resolve_data_dir()
-    run, companion = private_topology(data / "runs" / args.run_id, directory=True)
+    data, root = resolve_data_dir()
+    run, run_root = private_topology(data / "runs" / args.run_id, directory=True)
     if not contains(data, run):
         raise ExportError("Run directory escapes the private DATA root.")
+    if run_root != root:
+        raise ExportError("Output is inside a nested Git repository. Select a path in the companion itself.")
+    companion = root.name
     previous = verify_existing(run, config, args.resume)
     attempt_number = previous.get("attempt", 0) + 1 if previous else 1
     attempt = run / "attempts" / f"{attempt_number:04d}"
