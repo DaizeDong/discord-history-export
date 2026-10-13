@@ -21,6 +21,36 @@ def test_undeclared_data_root_rejected_before_exporter_or_credentials(relative, 
     assert native.files() == before
 
 
+@pytest.mark.parametrize('relative', ['data/arbitrary/archive', 'data/runs/acme/organized',
+                                      'data/organized', 'data', 'data/raw/acme'])
+def test_standalone_rejects_wrong_owner_before_reading_inputs(relative, tmp_path, monkeypatch):
+    native = NativeCompanion(tmp_path, monkeypatch)
+    monkeypatch.setattr(native.core, 'parse_channels', lambda path: pytest.fail('read before placement check'))
+    before = native.files()
+    with pytest.raises(native.core.ExportError, match='standalone_archive artifact must be written beneath'):
+        native.core.organize(tmp_path / 'raw', native.repository / relative, tmp_path / 'channels.txt')
+    assert native.files() == before
+    assert native.calls == []
+
+
+@pytest.mark.parametrize('relative', ['data/organized/acme', 'data/runs', 'data/arbitrary/acme'])
+def test_runner_owner_rejects_paths_outside_runs(relative, tmp_path, monkeypatch):
+    native = NativeCompanion(tmp_path, monkeypatch)
+    monkeypatch.setattr(native.core, 'parse_channels', lambda path: pytest.fail('read before placement check'))
+    before = native.files()
+    with pytest.raises(native.core.ExportError, match='runs artifact must be written beneath'):
+        native.core.organize(tmp_path / 'raw', native.repository / relative, tmp_path / 'channels.txt',
+                             artifact_id='runs')
+    assert native.files() == before
+    assert native.calls == []
+
+
+def test_unknown_archive_owner_is_refused(tmp_path, monkeypatch):
+    native = NativeCompanion(tmp_path, monkeypatch)
+    with pytest.raises(native.core.ExportError, match='Unknown archive artifact'):
+        native.core.authorize_archive(native.repository / 'data/organized/acme', 'readme', directory=True)
+
+
 @pytest.mark.parametrize('relative,artifact_id', [
     ('data/organized/acme', 'standalone_archive'),
     ('data/runs/acme/organized', 'runs'),

@@ -13,7 +13,7 @@ Destinations are checked by path only. The output must sit in a Git worktree fou
 
 Plan, execute, resume, and completed replay check the chosen run tree and existing nested repositories before reading credentials, probing the exporter, or writing output. Nested repositories inside the run tree are refused; Git administration is excluded from archive receipts.
 
-Standalone reorganize output must be one archive beneath `<companion>/data/organized/<archive-id>`. The export runner uses `data/runs/<run-id>/`. Organizer directories and every concrete output file are checked by path before creation.
+Standalone reorganize output must be one archive beneath `<companion>/data/organized/<archive-id>/` (the `standalone_archive` owner in `storage.contract.json`); the export runner's organized output must lie beneath `data/runs/<run-id>/` (the `runs` owner). Each owner's placement is a pure path check on the resolved destination: the organizer directory and every concrete output file are refused before any input is read or anything is created when they fall outside that layout, including `data/organized` itself, another archive owner's tree, or any other `data/` child. No Git command runs for this check.
 
 New and resumed runs check the prospective organized destination before exporter probes and again before credentials. Completed replay keeps its read-only topology checks. The helper does not stage, commit, or push archives.
 

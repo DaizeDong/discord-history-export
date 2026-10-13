@@ -69,6 +69,11 @@ def private_destination(path, *, directory=False, data_root=False):
     Publication state (the companion being PRIVATE) is enforced at commit time by the
     repository hooks and CI; the runtime runs no git or gh subprocess to prove it.
     """
+    target, root = _companion_destination(path, directory=directory, data_root=data_root)
+    return target, root.name
+
+
+def _companion_destination(path, *, directory=False, data_root=False):
     target = destination_path(path)
     if contains(SOURCE_ROOT, target):
         raise ExportError("Output cannot be inside the tool's own source checkout. Select its private companion.")
@@ -95,17 +100,37 @@ def private_destination(path, *, directory=False, data_root=False):
         raise ExportError("A directory destination is an existing file.")
     if destination_path(path) != target:
         raise ExportError("Output topology changed while checking the private companion.")
-    return target, root.name
+    return target, root
 
 
 def enumeration_error(error):
     raise ExportError("Directory enumeration failed. Restore directory access and retry.") from error
 
 
+# Archive owners from storage.contract.json and the companion-relative prefix each one
+# owns. Every archive output must lie at or below <companion>/<prefix>/<archive-id>/.
+ARCHIVE_LAYOUTS = {
+    "standalone_archive": ("data", "organized"),
+    "runs": ("data", "runs"),
+}
+
+
 def authorize_archive(path, artifact_id, *, directory=False):
-    """Check a concrete archive output by path before any creation."""
+    """Check a concrete archive output by path before any creation.
+
+    The resolved destination must sit inside one archive directory of its owner's
+    declared layout, e.g. <companion>/data/organized/<archive-id>/ for the standalone
+    organizer. The check is lexical on the resolved path; no git subprocess runs.
+    """
+    prefix = ARCHIVE_LAYOUTS.get(artifact_id)
+    if prefix is None:
+        raise ExportError(f"Unknown archive artifact {artifact_id!r}; no layout is declared for it.")
     lexical = Path(path).expanduser().absolute()
-    target, _ = private_destination(lexical, directory=directory)
+    target, root = _companion_destination(lexical, directory=directory)
+    parts = target.relative_to(root).parts
+    if len(parts) <= len(prefix) or tuple(p.lower() for p in parts[:len(prefix)]) != prefix:
+        raise ExportError(f"The {artifact_id} artifact must be written beneath "
+                          f"<companion>/{'/'.join(prefix)}/<archive-id>/. Select a path in that layout.")
     if not directory and target.is_dir():
         raise ExportError("A file archive destination is an existing directory.")
     return target

@@ -42,7 +42,7 @@ Every directory inventory must finish successfully. On enumeration errors, resto
 
 ## Existing raw archives
 
-Preserve the positional interface: `python scripts/reorganize.py RAW_DIR ORGANIZED_DIR CHANNELS_TXT`. Supply absolute paths from other working directories. `ORGANIZED_DIR` must be under `<companion>/data/organized/<archive-id>/` and pass the same private Git boundary.
+Preserve the positional interface: `python scripts/reorganize.py RAW_DIR ORGANIZED_DIR CHANNELS_TXT`. Supply absolute paths from other working directories. `ORGANIZED_DIR` must resolve to `<companion>/data/organized/<archive-id>/` or below; any other placement is refused by path, with no Git command, before inputs are read. The same companion path checks as the runner also apply.
 
 The organizer verifies the supplied formats before copying and refuses collisions. Read [channel identity and receipts](reference/archive-validation.md#channel-identity-and-receipts) for source preservation, manifests, format completeness and rejection rules.
 
