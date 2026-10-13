@@ -1,4 +1,4 @@
-"""Reorganize immutable DCE source files inside a verified private Git companion.
+"""Reorganize immutable DCE source files inside a private Git companion.
 
 Usage: python reorganize.py RAW_DIR ORGANIZED_DIR CHANNELS_TXT
 """

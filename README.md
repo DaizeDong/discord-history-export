@@ -12,7 +12,7 @@ Export authorized Discord history to verified HTML and JSON archives in a privat
 
 ## ⭐ Design Philosophy
 
-An archive is useful when its files can be traced to the requested channels and opened later. DiscordChatExporter handles Discord access. This skill handles the local boundary: credentials stay in the child environment, real output belongs in a verified private Git repository, and each artifact carries its channel ID, byte count, and checksum.
+An archive is useful when its files can be traced to the requested channels and opened later. DiscordChatExporter handles Discord access. This skill handles the local boundary: credentials stay in the child environment, real output belongs in a private Git repository, and each artifact carries its channel ID, byte count, and checksum.
 
 Names help people navigate, but IDs define identity. The organizer preserves the exporter's ID folders and filenames, so repeated channel or thread titles stay separate and relative media links keep working. Its index lists every HTML and JSON artifact; the manifest also records channel display names and container IDs. See [PHILOSOPHY.md](PHILOSOPHY.md).
 
@@ -36,12 +36,12 @@ An existing clone needs `git submodule update --init --recursive`. Missing guard
 
 Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to exactly `<companion>/data` in a separate
 PRIVATE Git companion. An explicit empty or invalid selection fails; a missing
-`data/` child is created only during execution after verification. Without an
-override, shared companion discovery applies. Writes require committed HEAD,
-current local Guards visibility proof, the declared artifact layout and effective
-Git trackability. [DATA.md](DATA.md) defines route policy, nested-worktree checks,
-source-owned admission and retention. The helper does not refresh the visibility
-receipt, contact GitHub, or stage, commit or push archives.
+`data/` child is created only during execution after the path check. Without an
+override, shared companion discovery applies. Writes are checked by path only: inside
+the companion worktree's `data/`, outside this checkout, with no links or nested
+repositories. PRIVATE publication is enforced at commit time by the Guards hooks and
+CI. [DATA.md](DATA.md) defines the path checks and retention. The helper does not
+contact GitHub, or stage, commit or push archives.
 
 Keep an authorized bot credential in a local environment variable or an owner-only
 file outside the public checkout and version control. `--credential-ref` accepts
@@ -80,14 +80,14 @@ The positional interface remains available:
 python "$SkillDir/scripts/reorganize.py" "$RawDir" "$OrganizedDir" "$ChannelsTxt"
 ```
 
-`$ChannelsTxt` is the existing DCE channel listing. `$OrganizedDir` must be under `<companion>/data/organized/<archive-id>/` in a verified private companion. Input filenames retain `[%c]`; DCE's `%t` folder is the category ID for a channel and parent channel ID for a thread. JSON can also establish its channel ID through `channel.id`. A supplied one-format archive is valid for the organizer; a full export requires both formats.
+`$ChannelsTxt` is the existing DCE channel listing. `$OrganizedDir` must be under `<companion>/data/organized/<archive-id>/` in a private companion. Input filenames retain `[%c]`; DCE's `%t` folder is the category ID for a channel and parent channel ID for a thread. JSON can also establish its channel ID through `channel.id`. A supplied one-format archive is valid for the organizer; a full export requires both formats.
 
 The organizer checks the entire source and destination set before copying. When both formats are supplied, their channel ID sets must match. It preserves source bytes and nested media, validates local links, and refuses conflicting output or a different source root. Identical reruns are idempotent. No file is overwritten to resolve a name conflict.
 
 Source bytes, channel identities and media dependencies are defined in
 [archive validation](skills/discord-history-export/reference/archive-validation.md).
-Both organizer and runner use the [storage admission rules](DATA.md), including
-rechecking after exporter probes and refusing ignored raw artifacts.
+Both organizer and runner use the [storage path checks](DATA.md), including
+rechecking after exporter probes.
 
 ## Verification and limits
 
@@ -96,7 +96,7 @@ python tools/make_fixtures.py
 python -m pytest tests -q
 ```
 
-The offline suite generates synthetic Discord records and intercepts exporter calls. Storage controls also use real temporary Git repositories and generated local visibility receipts; no Discord or GitHub request runs. It exercises local credentials, output boundaries, media integrity, retries, and a complete-tree installed alias. This establishes offline behavior only. It does not prove live Discord permissions, real exporter compatibility on every platform, plugin catalog activation, or unattended production operation. Media retained as remote URLs still needs network access; use `--media` for downloaded assets. An exporter error is never treated as a successful archive.
+The offline suite generates synthetic Discord records and intercepts exporter calls. Storage controls also use real temporary Git worktrees; no Discord or GitHub request runs. It exercises local credentials, output boundaries, media integrity, retries, and a complete-tree installed alias. This establishes offline behavior only. It does not prove live Discord permissions, real exporter compatibility on every platform, plugin catalog activation, or unattended production operation. Media retained as remote URLs still needs network access; use `--media` for downloaded assets. An exporter error is never treated as a successful archive.
 
 ## Languages
 

@@ -30,15 +30,15 @@
 git clone --recurse-submodules https://github.com/DaizeDong/discord-history-export.git
 ```
 
-已有克隆需运行 `git submodule update --init --recursive`。缺少 guards 子模块会直接报错。环境需要 Python 3.10+、Git、有效的本地 Guards 可见性凭据，以及支持的 [DiscordChatExporter CLI 版本](https://github.com/Tyrrrz/DiscordChatExporter/releases)。脚本会先检查指定程序的版本和导出命令帮助，再读取 Bot 凭据；不会自动下载或安装导出工具。
+已有克隆需运行 `git submodule update --init --recursive`。缺少 guards 子模块会直接报错。环境需要 Python 3.10+、Git，以及支持的 [DiscordChatExporter CLI 版本](https://github.com/Tyrrrz/DiscordChatExporter/releases)。脚本会先检查指定程序的版本和导出命令帮助，再读取 Bot 凭据；不会自动下载或安装导出工具。
 
 ## 私有 DATA 与凭据
 
 将 `DISCORD_HISTORY_EXPORT_DATA_DIR` 指向独立 PRIVATE Git 伴生仓准确的
 `<companion>/data`。显式选择为空或无效时直接失败；缺少的 `data/` 子目录只在执行时、
-验证通过后创建。未设置时使用共享伴生仓发现。写入需要已有提交、有效的本地 Guards
-可见性记录、声明的产物布局和 Git 可跟踪性。[DATA.md](DATA.md) 规定传输策略、
-嵌套工作树检查、产物写入检查和保留规则。脚本不刷新可见性记录，不请求 GitHub，
+路径检查通过后创建。未设置时使用共享伴生仓发现。写入只按路径检查：必须落在伴生仓
+工作树的 `data/` 内、不在本仓内，不经过链接或嵌套仓库。PRIVATE 发布由 Guards 提交钩子
+和 CI 在提交时把关。[DATA.md](DATA.md) 规定路径检查和保留规则。脚本不请求 GitHub，
 也不自动暂存、提交或推送存档。
 
 Bot 凭据保存在本地环境变量或仅所有者可读的文件中，文件须位于公开源码目录和版本管理
@@ -75,7 +75,7 @@ Bot 凭据保存在本地环境变量或仅所有者可读的文件中，文件�
 python "$SkillDir/scripts/reorganize.py" "$RawDir" "$OrganizedDir" "$ChannelsTxt"
 ```
 
-`$ChannelsTxt` 是已有的 DCE 频道列表。`$OrganizedDir` 必须位于确认过的私有伴生仓的 `<companion>/data/organized/<archive-id>/` 下。输入文件名保留 `[%c]`；DCE 的 `%t` 对普通频道表示分类 ID，对 thread 表示父频道 ID。JSON 也可以通过 `channel.id` 提供身份。整理单一格式的已有存档可以算完成；完整导出则必须同时有两种格式。
+`$ChannelsTxt` 是已有的 DCE 频道列表。`$OrganizedDir` 必须位于私有伴生仓的 `<companion>/data/organized/<archive-id>/` 下。输入文件名保留 `[%c]`；DCE 的 `%t` 对普通频道表示分类 ID，对 thread 表示父频道 ID。JSON 也可以通过 `channel.id` 提供身份。整理单一格式的已有存档可以算完成；完整导出则必须同时有两种格式。
 
 整理脚本会在复制前检查全部源文件和目标文件；同时提供两种格式时，频道 ID 集合必须一致。脚本保留原始字节与嵌套媒体，检查本地链接。已有内容冲突或源目录改变都会被拒绝。相同输入重复运行不会改变结果，也不会通过覆盖文件解决重名问题。
 
@@ -90,7 +90,7 @@ python tools/make_fixtures.py
 python -m pytest tests -q
 ```
 
-离线测试使用生成的合成 Discord 记录，并拦截导出程序调用。存储边界测试还会使用真实的临时 Git 仓库和生成的本地可见性凭据，不会请求 Discord 或 GitHub。测试检查凭据、输出边界、媒体完整性、重试和完整安装目录别名。这只能证明离线行为，不能证明真实 Discord 权限、所有平台上的导出程序兼容性、插件目录激活或无人值守运行。仍为远程 URL 的媒体需要网络访问；需要下载附件时请加 `--media`。导出程序报错不会被当作成功。
+离线测试使用生成的合成 Discord 记录，并拦截导出程序调用。存储边界测试还会使用真实的临时 Git 工作树，不会请求 Discord 或 GitHub。测试检查凭据、输出边界、媒体完整性、重试和完整安装目录别名。这只能证明离线行为，不能证明真实 Discord 权限、所有平台上的导出程序兼容性、插件目录激活或无人值守运行。仍为远程 URL 的媒体需要网络访问；需要下载附件时请加 `--media`。导出程序报错不会被当作成功。
 
 ## 语言
 

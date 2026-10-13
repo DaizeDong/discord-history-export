@@ -6,4 +6,4 @@ A name can change or collide. A Discord ID defines which channel, category, or t
 
 An exporter exit code is one piece of evidence. Completion also requires the requested formats, matching channel identities, usable local links, and byte-level receipts. Failure keeps its artifacts and an actionable status; retries preserve the prior attempt.
 
-Public code is an uninitialized tool. Generated examples are synthetic. Real archives and run history belong in a separate, verified private Git repository, with credentials excluded from version control.
+Public code is an uninitialized tool. Generated examples are synthetic. Real archives and run history belong in a separate private Git repository, with credentials excluded from version control.

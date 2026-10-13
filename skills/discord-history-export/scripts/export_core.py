@@ -7,8 +7,6 @@ import os
 from pathlib import Path
 import re
 import stat
-import subprocess
-import sys
 from urllib.parse import unquote, urlsplit, quote
 
 SOURCE_ROOT = Path(__file__).resolve().parents[3]
@@ -43,35 +41,6 @@ def load_resolver():
     return module
 
 
-def _check_transport_environment(environment=None):
-    environment = os.environ if environment is None else environment
-    for key, value in environment.items():
-        upper = key.upper()
-        if (upper.startswith("GIT_") and upper != "GIT_OPTIONAL_LOCKS") or upper in {
-                "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "SSH_COMMAND",
-                "SSL_CERT_FILE", "SSL_CERT_DIR", "CURL_CA_BUNDLE", "CURL_SSL_BACKEND"}:
-            raise ExportError("Git, proxy, or TLS trust environment overrides prevent private destination proof. Clear overrides and retry.")
-        if upper == "GH_HOST" and value.lower() != "github.com":
-            raise ExportError("Private destination verification requires the github.com authority.")
-
-
-def load_boundary():
-    """Load only the shared, supported companion proof and read interfaces."""
-    path = SOURCE_ROOT / "guards" / "tools" / "data_boundary.py"
-    if not path.is_file():
-        raise ExportError("Missing guards submodule. Run git submodule update --init --recursive in the source checkout.")
-    try:
-        spec = importlib.util.spec_from_file_location("discord_export_shared_boundary", path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        if not all(callable(getattr(module, name, None)) for name in
-                   ("prove_private_companion", "read_private_companion_git")):
-            raise ImportError("Unsupported companion proof API")
-        return module
-    except (ImportError, AttributeError, OSError, RuntimeError, ValueError, TypeError):
-        raise ExportError("The guards submodule must provide the supported private companion proof API.") from None
-
-
 def destination_path(path):
     target = Path(path).expanduser().absolute()
     for node in (target, *target.parents):
@@ -86,9 +55,20 @@ def destination_path(path):
     return target.resolve()
 
 
+def _worktree_root(start):
+    """The nearest enclosing Git worktree, found by its .git marker; no subprocess runs."""
+    for node in (start, *start.parents):
+        if os.path.lexists(node / ".git"):
+            return node
+    return None
+
+
 def private_destination(path, *, directory=False, data_root=False):
-    """Prove the enclosing PRIVATE worktree and exact file or directory trackability."""
-    _check_transport_environment()
+    """Check that a destination sits in a separate companion worktree, by path only.
+
+    Publication state (the companion being PRIVATE) is enforced at commit time by the
+    repository hooks and CI; the runtime runs no git or gh subprocess to prove it.
+    """
     target = destination_path(path)
     if contains(SOURCE_ROOT, target):
         raise ExportError("Output cannot be inside the tool's own source checkout. Select its private companion.")
@@ -97,72 +77,42 @@ def private_destination(path, *, directory=False, data_root=False):
         ancestor = ancestor.parent
     if not ancestor.is_dir():
         raise ExportError("Output parent must be a directory in a private Git companion.")
-    boundary = load_boundary()
-    try:
-        proof = boundary.prove_private_companion(ancestor)
-        root = destination_path(proof.root)
-        if not contains(root, target):
-            raise ExportError("Output has no proven enclosing Git worktree.")
-        if contains(SOURCE_ROOT, root) or contains(root, SOURCE_ROOT):
-            raise ExportError("The tool's consumer worktree cannot also be the DATA companion.")
-        if data_root and target != root / "data":
-            raise ExportError("Select the companion's data/ directory declared in storage.contract.json.")
-        if any(slug.rsplit("/", 1)[-1].lower() == SKILL for slug in proof.repositories):
-            raise ExportError("A source repository cannot also be the DATA companion.")
-        boundary.read_private_companion_git(proof, "rev-parse", "--verify", "HEAD")
-        relative = target.relative_to(root).as_posix()
-        if relative != "." and (directory or target.is_dir()):
-            relative += "/"
-        ignored = boundary.read_private_companion_git(proof, "check-ignore", "--no-index", "-q", "--", relative)
-        if ignored.returncode == 0:
-            raise ExportError("The exact output path is ignored by Git. Select a trackable path in the private companion.")
-        if destination_path(path) != target:
-            raise ExportError("Output topology changed during private companion proof.")
-    except ExportError:
-        raise
-    except (OSError, RuntimeError, ValueError, TypeError, AttributeError, subprocess.SubprocessError):
-        raise ExportError("Cannot verify private Git output. Every destination requires verified PRIVATE visibility and identity, "
-                          "a fresh local visibility receipt, a committed HEAD, and supported Git transport configuration.") from None
-    return target, proof.repositories[0]
+    root = _worktree_root(ancestor)
+    if root is None:
+        raise ExportError("Output must be inside a private Git companion worktree.")
+    if any(os.path.lexists(outer / ".git") for outer in root.parents):
+        raise ExportError("Output is inside a nested Git repository. Select a path in the companion itself.")
+    root = destination_path(root)
+    if not contains(root, target):
+        raise ExportError("Output has no enclosing Git worktree.")
+    if contains(SOURCE_ROOT, root) or contains(root, SOURCE_ROOT):
+        raise ExportError("The tool's consumer worktree cannot also be the DATA companion.")
+    if data_root and target != root / "data":
+        raise ExportError("Select the companion's data/ directory declared in storage.contract.json.")
+    if root.name.lower() == SKILL:
+        raise ExportError("A source repository cannot also be the DATA companion.")
+    if directory and target.is_file():
+        raise ExportError("A directory destination is an existing file.")
+    if destination_path(path) != target:
+        raise ExportError("Output topology changed while checking the private companion.")
+    return target, root.name
 
 
 def enumeration_error(error):
     raise ExportError("Directory enumeration failed. Restore directory access and retry.") from error
 
 
-def load_storage():
-    path = SOURCE_ROOT / 'guards/tools/storage_contract.py'
-    try:
-        spec = importlib.util.spec_from_file_location('discord_export_storage_contract', path)
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
-        return module
-    except (OSError, ImportError, AttributeError) as exc:
-        raise ExportError('Initialize pinned guards artifact admission before writing archives.') from exc
-
-
 def authorize_archive(path, artifact_id, *, directory=False):
-    """Bind concrete archive outputs to their producer before any creation."""
+    """Check a concrete archive output by path before any creation."""
     lexical = Path(path).expanduser().absolute()
-    destination_path(lexical)
-    existing = lexical
-    while not existing.exists():
-        existing = existing.parent
-    if existing.is_file():
-        existing = existing.parent
-    try:
-        proof = load_boundary().prove_private_companion(existing)
-        root = Path(proof.root)
-        return load_storage().authorize_artifact_write(
-            SOURCE_ROOT, root, lexical.relative_to(root).as_posix(),
-            artifact_id=artifact_id, directory=directory).path
-    except (OSError, RuntimeError, ValueError, AttributeError) as exc:
-        raise ExportError('Source artifact admission refused the archive destination: ' + str(exc)) from exc
+    target, _ = private_destination(lexical, directory=directory)
+    if not directory and target.is_dir():
+        raise ExportError("A file archive destination is an existing directory.")
+    return target
 
 
 def private_topology(path, *, directory=False):
-    """Prove the chosen tree before reading credentials, probing exporters, or writing."""
+    """Check the chosen tree before reading credentials, probing exporters, or writing."""
     target, companion = private_destination(path, directory=directory)
     if target.is_dir():
         for folder, dirs, files in os.walk(target, followlinks=False, onerror=enumeration_error):

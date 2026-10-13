@@ -1,4 +1,4 @@
-"""Exercise layout admission with generated companions and native local Git proof."""
+"""Exercise layout path checks with generated companions; no subprocess runs."""
 import sys
 from pathlib import Path
 
@@ -21,16 +21,6 @@ def test_undeclared_data_root_rejected_before_exporter_or_credentials(relative, 
     assert native.files() == before
 
 
-@pytest.mark.parametrize('relative', ['data/arbitrary/archive', 'data/runs/acme/organized'])
-def test_standalone_rejects_wrong_owner_before_reading_inputs(relative, tmp_path, monkeypatch):
-    native = NativeCompanion(tmp_path, monkeypatch)
-    monkeypatch.setattr(native.core, 'parse_channels', lambda path: pytest.fail('read before admission'))
-    before = native.files()
-    with pytest.raises(native.core.ExportError, match='artifact'):
-        native.core.organize(tmp_path / 'raw', native.repository / relative, tmp_path / 'channels.txt')
-    assert native.files() == before
-
-
 @pytest.mark.parametrize('relative,artifact_id', [
     ('data/organized/acme', 'standalone_archive'),
     ('data/runs/acme/organized', 'runs'),
@@ -50,19 +40,14 @@ def test_organizer_declared_owners_write_complete_archives(relative, artifact_id
 
 
 @pytest.mark.parametrize('linked', [False, True])
-def test_nested_private_run_root_refuses_before_exporter_or_credentials(linked, tmp_path, monkeypatch):
+def test_nested_run_root_refuses_before_exporter_or_credentials(linked, tmp_path, monkeypatch):
     native = NativeCompanion(tmp_path, monkeypatch)
     nested = native.repository / 'data/runs'
-    nested.parent.mkdir()
+    nested.mkdir(parents=True)
     if linked:
-        native.git('worktree', 'add', '--detach', str(nested))
+        (nested / '.git').write_text('gitdir: ../../.git/worktrees/runs\n', encoding='utf-8')
     else:
-        native.git('init', '--template=', str(nested))
-        native.git('config', 'remote.origin.url',
-                   'https://github.com/acmeorg/synthetic-discord-config.git', cwd=nested)
-        tree = native.git('hash-object', '-t', 'tree', '-w', '--stdin', input='', cwd=nested).stdout.strip()
-        commit = native.git('commit-tree', tree, '-m', 'Synthetic empty companion', cwd=nested).stdout.strip()
-        native.git('update-ref', 'HEAD', commit, cwd=nested)
+        (nested / '.git').mkdir()
     observations = {}
     history, arguments, reads = native_export(native, observations=observations)
     before = native.files()

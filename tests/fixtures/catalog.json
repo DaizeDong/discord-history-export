@@ -19,86 +19,52 @@
     {
       "kind": "private-normal",
       "exists": true,
-      "allowed": true,
-      "repository": "AcmeOrg/synthetic-private-normal-config"
+      "allowed": true
     },
     {
       "kind": "private-normal",
       "exists": false,
-      "allowed": true,
-      "repository": "AcmeOrg/synthetic-private-normal-config"
+      "allowed": true
     },
     {
       "kind": "private-linked",
       "exists": true,
-      "allowed": true,
-      "repository": "AcmeOrg/synthetic-private-linked-config"
+      "allowed": true
     },
     {
       "kind": "private-linked",
       "exists": false,
-      "allowed": true,
-      "repository": "AcmeOrg/synthetic-private-linked-config"
+      "allowed": true
     },
     {
       "kind": "own-source",
       "exists": true,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-own-source-config"
+      "allowed": false
     },
     {
       "kind": "own-source",
       "exists": false,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-own-source-config"
-    },
-    {
-      "kind": "public",
-      "exists": true,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-public-config"
-    },
-    {
-      "kind": "public",
-      "exists": false,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-public-config"
-    },
-    {
-      "kind": "unknown",
-      "exists": true,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-unknown-config"
-    },
-    {
-      "kind": "unknown",
-      "exists": false,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-unknown-config"
+      "allowed": false
     },
     {
       "kind": "unversioned",
       "exists": true,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-unversioned-config"
+      "allowed": false
     },
     {
       "kind": "unversioned",
       "exists": false,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-unversioned-config"
+      "allowed": false
     },
     {
       "kind": "file",
       "exists": true,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-file-config"
+      "allowed": false
     },
     {
       "kind": "file",
       "exists": false,
-      "allowed": false,
-      "repository": "AcmeOrg/synthetic-file-config"
+      "allowed": false
     }
   ]
 }

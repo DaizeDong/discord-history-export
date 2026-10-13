@@ -5,23 +5,21 @@ The [export workflow](skills/discord-history-export/SKILL.md) defines authorized
 scope and retry behavior. [Archive validation](skills/discord-history-export/reference/archive-validation.md)
 defines content, identity, links and completion checks.
 
-## Storage selection and proof
+## Storage selection and path checks
 
-Create or use a separate **PRIVATE GitHub repository** and clone it locally. Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to exactly `<companion>/data`; a missing child directory is created only during execution after its enclosing worktree is verified. An explicit DATA override is authoritative: empty, invalid, or disallowed selections fail without falling through to another companion. The helper uses the [shared companion interfaces](guards/COMPANION.md) for discovery and proof. Before writing, it verifies every physical and effective publication route against the local Guards visibility receipt, checks committed HEAD, and checks exact output paths and known future directories with Git's ignore rules. Prepare or refresh that receipt through the Guards visibility setup before export; the helper does not refresh it or contact GitHub. Normal and linked Git worktrees are supported. PUBLIC, UNKNOWN, missing or stale receipts, unborn repositories, ignored output paths, and the tool's own checkout are rejected.
+Create or use a separate **PRIVATE GitHub repository** and clone it locally. Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to exactly `<companion>/data`; a missing child directory is created only during execution after its enclosing worktree is checked. An explicit DATA override is authoritative: empty, invalid, or disallowed selections fail without falling through to another companion. The helper uses the [shared companion resolver](guards/COMPANION.md) for discovery.
 
-Every configured remote's effective fetch and push destinations must identify a PRIVATE GitHub repository, including URL rewrites and selected publication remotes. Custom transports, Git routing overrides, and custom TLS trust settings are refused. The bundled shared HTTP policy checks every configuration occurrence, including URL-scoped entries and values before an empty reset; enabled certificate verification and supported performance options are allowed. Each destination proof uses one validated environment snapshot. Use canonical `https://github.com/OWNER/REPOSITORY.git` URLs. The bundled shared static SSH verifier also supports canonical `git@github.com` destinations when it recognizes the client and proves canonical routing with default trust. A missing verifier, unsupported configuration, or unproven SSH alias fails with HTTPS setup guidance. Verification never invokes SSH.
+Destinations are checked by path only. The output must sit in a Git worktree found by its `.git` marker (normal and linked worktrees are supported), outside the tool's own checkout, with `data/` as the selected root, no symlinks, reparse points or hardlinked files, and no nested repository between the companion and the output. A companion directory named like the tool repository is refused. No Git or `gh` subprocess runs and no repository visibility is queried at runtime; PRIVATE publication is enforced at commit time by the Guards hooks and CI.
 
-Plan, execute, resume, and completed replay check the chosen run tree and existing nested repositories before reading credentials, probing the exporter, or writing output. PUBLIC or unproven nested repositories are refused. Private linked worktrees remain valid; Git administration is excluded from archive receipts.
+Plan, execute, resume, and completed replay check the chosen run tree and existing nested repositories before reading credentials, probing the exporter, or writing output. Nested repositories inside the run tree are refused; Git administration is excluded from archive receipts.
 
-Standalone reorganize output must be one archive beneath `<companion>/data/organized/<archive-id>` and binds to `standalone_archive`. The export runner explicitly uses the separate `runs` owner beneath `data/runs/<run-id>/`. Organizer directories and every concrete output file are admitted through the canonical source storage contract before creation; source declarations never authorize arbitrary PRIVATE destinations. Lexical topology, current complete-route PRIVATE proof, committed HEAD, retention and effective ignore rules all remain enforced.
+Standalone reorganize output must be one archive beneath `<companion>/data/organized/<archive-id>`. The export runner uses `data/runs/<run-id>/`. Organizer directories and every concrete output file are checked by path before creation.
 
-New and resumed runs check the prospective organized destination before exporter probes and again before credentials. A nested PRIVATE worktree must still own the exact declared layout. Completed replay keeps its read-only topology checks and does not request write admission.
-
-The destination is proved again after exporter version/help probes, before reading credentials. Existing replay files and dynamically named raw artifacts are checked for exact Git ignore status. Ignored raw artifacts remain in the private companion with a partial failure; they cannot produce a complete result. The helper does not stage, commit, or push archives.
+New and resumed runs check the prospective organized destination before exporter probes and again before credentials. Completed replay keeps its read-only topology checks. The helper does not stage, commit, or push archives.
 
 ## Layout and retention
 
-Contract paths are relative to the verified PRIVATE companion root. The selected
+Contract paths are relative to the PRIVATE companion root. The selected
 `data/` directory contains `runs/<run-id>/run.json`, the run manifest and immutable
 attempts with raw HTML/JSON, channel mappings, organized archives, indexes and media.
 

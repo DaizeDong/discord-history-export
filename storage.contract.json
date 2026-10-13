@@ -88,7 +88,7 @@
       "schema": "skills/discord-history-export/scripts/export_history.py standard run path.",
       "producer": "Private companion setup or export execution.",
       "consumer_or_final_deliverable": "The export workflow creates a run-specific child here.",
-      "rebuild_or_restore": "Recreate the empty container inside the verified PRIVATE companion when needed.",
+      "rebuild_or_restore": "Recreate the empty container inside the PRIVATE companion when needed.",
       "retention_rule": {
         "class": "rebuildable",
         "rule": "May remain while this companion is configured. Retire only while empty and no export process is using it."

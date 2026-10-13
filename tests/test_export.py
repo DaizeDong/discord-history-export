@@ -40,7 +40,6 @@ class Harness:
         self.exporter = root / "synthetic-exporter"
         self.exporter.write_text("synthetic process, intercepted in tests", encoding="utf-8")
         self.calls = []
-        self.visibility = "PRIVATE"
         self.version = "2.47"
         self.fail_format = None
         self.empty_format = None
@@ -50,9 +49,6 @@ class Harness:
         self.mismatch = False
         self.interrupt_format = None
         self.data_override = None
-        self.repositories = {}
-        self.receipt_override = {}
-        self.proofs = []
 
     def run(self, argv, **kwargs):
         args = [str(a) for a in argv]
@@ -71,14 +67,6 @@ class Harness:
                 output = "1" * 40
             elif "check-ignore" in args:
                 code = 1
-            elif "--list" in args:
-                repository = self.repositories.get(root, ("AcmeOrg/discord-history-export-config", self.visibility))[0]
-                output = "remote.origin.url\nhttps://github.com/" + repository + ".git\0"
-            elif args[-1] == "remote":
-                output = "origin"
-            elif "remote.origin.url" in args or "get-url" in args:
-                repository = self.repositories.get(root, ("AcmeOrg/discord-history-export-config", self.visibility))[0]
-                output = "https://github.com/" + repository + ".git"
             else:
                 raise AssertionError(f"Unexpected git command: {args}")
         elif args[0] == str(self.exporter):
@@ -120,9 +108,6 @@ class Harness:
         core = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(core)
         sys.modules["export_core"] = core
-        states = lambda: {"AcmeOrg/discord-history-export-config": self.visibility,
-                          **{slug: state for slug, state in self.repositories.values()}, **self.receipt_override}
-        self.proofs = fixtures.bind_public_boundary(core, self.root, self.run, states)
         monkeypatch.setattr(subprocess, "run", self.run)
         override = str(self.data) if self.data_override is None else self.data_override
         monkeypatch.setenv("DISCORD_HISTORY_EXPORT_DATA_DIR", override)
@@ -563,15 +548,13 @@ def test_organizer_rejects_without_mutation(h, monkeypatch, case):
     assert expected[case] in output
 
 
-@pytest.mark.parametrize("visibility", ["PUBLIC", "UNKNOWN", ""])
-def test_organizer_private_boundary(h, monkeypatch, visibility):
-    h.visibility = visibility
-    target = h.data / "organized" / "archive"
+def test_organizer_private_boundary(h, monkeypatch):
+    target = h.root / "loose" / "organized" / "archive"
     code, output = h.cli(monkeypatch, "reorganize.py", [h.raw, target, h.channels])
     assert code != 0
     assert not target.exists()
-    assert "Source artifact admission refused" in output and "PRIVATE" in output
-    assert any("get-url" in argv for argv, _ in h.calls)
+    assert "private Git companion worktree" in output
+    assert not h.calls
 
 
 def test_plan_never_reads_credential_or_writes(h, monkeypatch):
@@ -656,27 +639,21 @@ def test_linked_private_worktree(h, monkeypatch):
     assert code == 0, output
 
 
-@pytest.mark.parametrize("case", ["no-git", "own-consumer", "unknown-visibility"])
-def test_runner_denies_unproven_destination(h, monkeypatch, case):
+@pytest.mark.parametrize("case", ["no-git", "own-consumer"])
+def test_runner_denies_destination_outside_companion(h, monkeypatch, case):
     if case == "no-git":
         (h.companion / ".git").rmdir()
-    elif case == "own-consumer":
-        h.data = ROOT / "synthetic-denied-output"
     else:
-        h.visibility = "UNKNOWN"
+        h.data = ROOT / "synthetic-denied-output"
     code, output = h.export(monkeypatch)
     assert code == 1, output
     assert not list(h.data.iterdir()) if h.data.exists() else True
     assert all(argv[0] != str(h.exporter) for argv, _ in h.calls)
     if case == "no-git":
-        assert "Cannot verify private Git output" in output
-        assert any("--show-toplevel" in argv for argv, _ in h.calls)
-    elif case == "own-consumer":
-        assert "Output cannot be inside the tool's own source checkout" in output
-        assert not h.calls
+        assert "private Git companion worktree" in output
     else:
-        assert "verified PRIVATE visibility and identity" in output
-        assert any("get-url" in argv for argv, _ in h.calls)
+        assert "Output cannot be inside the tool's own source checkout" in output
+    assert not h.calls
 
 
 def test_complete_tree_installed_alias(h, monkeypatch):
@@ -723,7 +700,6 @@ def test_local_credential_reference(h, monkeypatch, kind):
         assert not list(h.data.iterdir())
         expected = "Credential file is unavailable" if kind == "missing-file" else "Credential is empty or malformed"
         assert expected in output
-        assert any("get-url" in argv for argv, _ in h.calls)
         assert [argv[1:] for argv, _ in h.calls if argv[0] == str(h.exporter)] == [
             ["--version"], ["exportguild", "--help"]]
 
@@ -818,9 +794,6 @@ def test_unproven_prerelease_cannot_borrow_release_evidence(h, monkeypatch):
                          ids=lambda case: case["kind"] + ("-existing" if case["exists"] else "-missing"))
 def test_explicit_data_selection_never_falls_through(h, monkeypatch, case, mode):
     selected, selected_root = fixtures.selected_destination(h.root, ROOT, case)
-    if selected_root:
-        visibility = "PRIVATE" if case["allowed"] else case["kind"].upper()
-        h.repositories[selected_root] = (case["repository"], visibility)
     h.data_override = str(selected)
     # This lower-priority companion is valid and available; its presence must not change intent.
     monkeypatch.setenv("DISCORD_HISTORY_EXPORT_CONFIG", str(h.companion))
@@ -841,16 +814,11 @@ def test_explicit_data_selection_never_falls_through(h, monkeypatch, case, mode)
     assert hashes(h.companion) == fallback_before, "The unselected fallback companion was mutated"
     assert code == (0 if case["allowed"] else 1), output
     if not case["allowed"]:
-        assert "environment overrides" not in output
-        if case["kind"] in ("public", "unknown"):
-            assert "verified PRIVATE visibility and identity" in output
-            assert any("get-url" in argv for argv, _ in h.calls)
-        elif case["kind"] == "own-source":
+        if case["kind"] == "own-source":
             assert "Output cannot be inside the tool's own source checkout" in output
-            assert not h.calls
         elif case["kind"] == "unversioned":
-            assert "Cannot verify private Git output" in output
-            assert any("--show-toplevel" in argv for argv, _ in h.calls)
+            assert "private Git companion worktree" in output
+        assert not h.calls
     if mode == "plan" or not case["allowed"]:
         assert not reads
         assert all(argv[0] != str(h.exporter) for argv, _ in h.calls)
@@ -861,7 +829,7 @@ def test_explicit_data_selection_never_falls_through(h, monkeypatch, case, mode)
         assert len(reads) == 1
         manifest = json.loads((selected / "runs" / "synthetic-run" / "manifest.json").read_text())
         assert manifest["status"] == "complete"
-        assert manifest["companion"] == case["repository"].lower()
+        assert manifest["companion"] == selected_root.name
 
 
 @pytest.mark.parametrize("mode", ["plan", "execute"])
@@ -934,93 +902,10 @@ def source6_execute(h, monkeypatch, credential, action='execute', resume=False):
     return h.cli(monkeypatch, 'export_history.py', args)
 
 
-def source6_bind_ssh_verifier(monkeypatch, configuration):
-    """Isolate synthetic SSH file sources through standard-library seams."""
-    return fixtures.bind_synthetic_ssh_profile(monkeypatch, configuration)
-
-
-@pytest.mark.parametrize('case', fixtures.source6_publication_cases(), ids=lambda case: case['id'])
-def test_source6_effective_publication_route_denies_before_activity(h, monkeypatch, case):
-    credential, reads = source6_track_credential(h, monkeypatch)
-    base = h.run
-
-    def route(argv, **kwargs):
-        args = list(map(str, argv))
-        output = None
-        if args[0] == 'git':
-            tail = args[args.index('-C') + 2:]
-            if 'remote.origin.url' in tail:
-                output = case['nominal']
-            elif tail == ['remote']:
-                output = '\n'.join(case['routes'])
-            elif tail[:2] == ['remote', 'get-url']:
-                output = '\n'.join(case['routes'][tail[-1]]['push' if '--push' in tail else 'fetch'])
-            elif '--list' in tail:
-                rows = [('remote.' + name + '.url', values['fetch'][0]) for name, values in case['routes'].items()]
-                rows.extend(case['config'])
-                output = ''.join(key + '\n' + value + '\0' for key, value in rows)
-        if output is None:
-            return base(argv, **kwargs)
-        h.calls.append((args, kwargs.get('env')))
-        return subprocess.CompletedProcess(args, 0, stdout=output, stderr='')
-
-    h.run = route
-    h.receipt_override = case['visibility']
-    for key, value in case['environment'].items():
-        monkeypatch.setenv(key, value)
-    if case.get('ssh_config'):
-        home = h.root / 'synthetic-ssh-home'
-        (home / '.ssh').mkdir(parents=True)
-        configuration = home / '.ssh/config'
-        configuration.write_bytes(case['ssh_config'].encode('utf-8'))
-        ssh_observations = source6_bind_ssh_verifier(monkeypatch, configuration)
-    before = sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*'))
-    code, output = source6_execute(h, monkeypatch, credential)
-    if case['allowed']:
-        assert code == 0, output
-        assert reads == [credential]
-    else:
-        assert code == 1, output
-        assert reads == []
-        assert all(argv[0] != str(h.exporter) for argv, _ in h.calls)
-        assert sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*')) == before
-        if case['environment']:
-            assert 'environment overrides prevent private destination proof' in output
-            assert not h.calls
-        else:
-            assert any('--list' in argv for argv, _ in h.calls)
-            if case['id'] in ('custom-remote-command', 'ssh-command-config'):
-                assert 'Cannot verify private Git output' in output
-            elif case['id'] == 'unknown-pushremote':
-                assert 'Cannot verify private Git output' in output
-            elif case['id'] == 'ssh-active-proxy':
-                assert 'Cannot verify private Git output' in output
-                assert ssh_observations['reads']
-                assert all(data == case['ssh_config'].encode('utf-8') for data in ssh_observations['reads'])
-                configuration.write_bytes(case['safe_ssh_config'].encode('utf-8'))
-                ssh_observations['reads'].clear()
-                h.calls.clear()
-                safe_code, safe_output = source6_execute(h, monkeypatch, credential, action='plan')
-                assert safe_code == 0, safe_output
-                assert ssh_observations['reads']
-                assert all(data == case['safe_ssh_config'].encode('utf-8')
-                           for data in ssh_observations['reads'])
-                assert any("get-url" in argv for argv, _ in h.calls)
-                assert reads == [] and all(argv[0] != str(h.exporter) for argv, _ in h.calls)
-                assert sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*')) == before
-            elif case.get('http_policy'):
-                assert 'Cannot verify private Git output' in output
-                assert all(argv[0] != 'gh' for argv, _ in h.calls)
-            else:
-                assert 'verified PRIVATE visibility and identity' in output
-                assert any("get-url" in argv for argv, _ in h.calls)
-
-
 @pytest.mark.parametrize('case', fixtures.source6_nested_destination_cases(), ids=lambda case: case['id'])
-def test_source6_nested_run_parent_private_proof_precedes_activity(h, monkeypatch, case):
+def test_source6_nested_run_parent_is_refused_before_activity(h, monkeypatch, case):
     credential, reads = source6_track_credential(h, monkeypatch)
     nested = fixtures.source6_nested_repository(h.data / 'runs', linked=case['linked'])
-    h.repositories[nested] = (case['repository'], case['visibility'])
     before = hashes(h.data)
     tree_before = sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*'))
     code, output = source6_execute(h, monkeypatch, credential, case['action'])
@@ -1029,20 +914,14 @@ def test_source6_nested_run_parent_private_proof_precedes_activity(h, monkeypatc
     assert all(argv[0] != str(h.exporter) for argv, _ in h.calls)
     assert hashes(h.data) == before
     assert sorted(str(path.relative_to(h.data)) for path in h.data.rglob('*')) == tree_before
-    if case['allowed']:
-        assert 'Source artifact admission refused' in output
-        assert 'undeclared or ambiguous path' in output
-    else:
-        assert 'verified PRIVATE visibility and identity' in output
-    assert any('get-url' in argv and Path(argv[2]) == nested for argv, _ in h.calls)
+    assert 'nested Git repository' in output
 
 
-@pytest.mark.parametrize('case', [case for case in fixtures.source6_nested_destination_cases() if not case['allowed']])
+@pytest.mark.parametrize('case', fixtures.source6_nested_destination_cases(), ids=lambda case: case['id'])
 def test_source6_completed_replay_rechecks_nested_repository(h, monkeypatch, case):
     credential, reads = source6_track_credential(h, monkeypatch)
     assert source6_execute(h, monkeypatch, credential)[0] == 0
-    nested = fixtures.source6_nested_repository(h.data / 'runs' / 'synthetic-run')
-    h.repositories[nested] = (case['repository'], case['visibility'])
+    nested = fixtures.source6_nested_repository(h.data / 'runs' / 'synthetic-run', linked=case['linked'])
     before = hashes(nested)
     reads.clear()
     h.calls.clear()
@@ -1053,7 +932,7 @@ def test_source6_completed_replay_rechecks_nested_repository(h, monkeypatch, cas
 
 
 @pytest.mark.parametrize('case', [case for case in fixtures.source6_nested_destination_cases()
-                                if not case['allowed'] and case['action'] == 'execute'])
+                                if case['action'] == 'execute'])
 @pytest.mark.parametrize('relative', ['raw/html', 'organized/archive'])
 def test_source6_resume_rechecks_future_artifact_destinations(h, monkeypatch, case, relative):
     credential, reads = source6_track_credential(h, monkeypatch)
@@ -1061,8 +940,8 @@ def test_source6_resume_rechecks_future_artifact_destinations(h, monkeypatch, ca
     assert source6_execute(h, monkeypatch, credential)[0] == 1
     manifest = json.loads((h.data / 'runs' / 'synthetic-run' / 'manifest.json').read_text())
     assert manifest['status'] == 'partial'
-    nested = fixtures.source6_nested_repository(h.data / 'runs' / 'synthetic-run' / 'attempts' / '0002' / relative)
-    h.repositories[nested] = (case['repository'], case['visibility'])
+    nested = fixtures.source6_nested_repository(h.data / 'runs' / 'synthetic-run' / 'attempts' / '0002' / relative,
+                                                linked=case['linked'])
     before = hashes(h.data)
     reads.clear()
     h.calls.clear()
@@ -1071,39 +950,15 @@ def test_source6_resume_rechecks_future_artifact_destinations(h, monkeypatch, ca
     assert code == 1, output
     assert reads == [] and all(argv[0] != str(h.exporter) for argv, _ in h.calls)
     assert hashes(h.data) == before
-    assert 'verified PRIVATE visibility and identity' in output
-    assert any('get-url' in argv and Path(argv[2]) == nested for argv, _ in h.calls)
-
-
-@pytest.mark.parametrize('case', [case for case in fixtures.source6_nested_destination_cases() if case['allowed']])
-def test_source6_completed_replay_accepts_proven_private_nesting(h, monkeypatch, case):
-    credential, reads = source6_track_credential(h, monkeypatch)
-    assert source6_execute(h, monkeypatch, credential)[0] == 0
-    nested = fixtures.source6_nested_repository(h.data / 'runs' / 'synthetic-run', linked=case['linked'])
-    h.repositories[nested] = (case['repository'], case['visibility'])
-    before = hashes(nested)
-    reads.clear()
-    h.calls.clear()
-    code, output = source6_execute(h, monkeypatch, credential, case['action'])
-    assert code == 0, output
-    assert reads == [] and all(argv[0] != str(h.exporter) for argv, _ in h.calls)
-    assert hashes(nested) == before
+    assert 'nested Git repository' in output
 
 
 @pytest.mark.parametrize('case', [case for case in fixtures.source6_nested_destination_cases()
                                 if case['action'] == 'execute'])
 def test_source6_standalone_organizer_checks_nested_target_before_copy(h, monkeypatch, case):
     target = h.data / "organized" / 'source6-organized'
-    nested = fixtures.source6_nested_repository(target / 'archive', linked=case['linked'])
-    h.repositories[nested] = (case['repository'], case['visibility'])
+    fixtures.source6_nested_repository(target / 'archive', linked=case['linked'])
     before = hashes(h.data)
     code, output = h.cli(monkeypatch, 'reorganize.py', [h.raw, target, h.channels])
-    assert code == 1, output  # An existing nonempty topology is preserved even when PRIVATE.
+    assert code == 1, output
     assert hashes(h.data) == before
-    if not case['allowed']:
-        assert 'PRIVATE' in output
-        assert 'verified PRIVATE visibility and identity' in output
-    else:
-        assert 'Source artifact admission refused' in output
-        assert 'undeclared or ambiguous path' in output
-    assert any('get-url' in argv and Path(argv[2]) == nested for argv, _ in h.calls)

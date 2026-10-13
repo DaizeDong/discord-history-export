@@ -2,7 +2,7 @@
 
 The exporter runner requires both HTML and JSON with matching channel ID sets.
 The standalone organizer can validate one explicitly supplied format. An exporter
-exit code alone does not establish completion. Storage and write admission are
+exit code alone does not establish completion. Storage path checks are
 defined in [DATA.md](../../../DATA.md); credential transport is described in
 [credential-transport.md](credential-transport.md).
 

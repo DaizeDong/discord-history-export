@@ -9,26 +9,25 @@ Use an authorized bot credential for a server the user administers or whose admi
 
 ## Local setup
 
-The complete source tree requires its guards submodule. Read [reference/credential-transport.md](reference/credential-transport.md) for supported exporter evidence. Python 3.10+, Git, a fresh local Guards visibility receipt, and an existing DiscordChatExporter CLI executable are required. Do not download or install an exporter as part of an export request without the user's authorization.
+The complete source tree requires its guards submodule. Read [reference/credential-transport.md](reference/credential-transport.md) for supported exporter evidence. Python 3.10+, Git and an existing DiscordChatExporter CLI executable are required. Do not download or install an exporter as part of an export request without the user's authorization.
 
 Resolve the installed skill directory before invoking `scripts/export_history.py`. Paths in commands must be absolute when running from an unrelated current directory. The helper discovers the canonical source tree itself, including through an installed alias.
 
 Set `DISCORD_HISTORY_EXPORT_DATA_DIR` to exactly `<companion>/data` in a separate
 PRIVATE Git companion. Invalid or empty explicit selections fail; otherwise the
 shared resolver discovers storage. A missing child is created during execution,
-never during plan. Committed HEAD, current local visibility proof, source-owned
-artifact layout and effective Git trackability are required before credentials,
-exporter calls or writes. Normal and private linked worktrees are supported.
+never during plan. Destinations are checked by path only (inside the companion
+worktree's `data/`, outside this checkout, no links or nested repositories) before
+credentials, exporter calls or writes. Normal and linked worktrees are supported.
 The standalone organizer uses `data/organized/<archive-id>/`; the runner uses
 `data/runs/<run-id>/`. Keep archives and history versioned in the PRIVATE companion.
-[DATA.md](../../DATA.md) is authoritative for route and nested-repository policy,
-rechecks after exporter probes, concrete-file admission and read-only replay.
+[DATA.md](../../DATA.md) is authoritative for the path checks, nested-repository
+policy, rechecks after exporter probes and read-only replay.
 
 Credentials are local references only: `env:VARIABLE_NAME` or `file:ABSOLUTE_PATH`. Never ask the user to paste a credential into a conversation. The helper reads the reference only for execution and passes the value via the exporter's child `DISCORD_TOKEN` environment. Do not construct a token command-line flag. No browser credential extraction is part of this workflow.
 
-Prepare or refresh the local visibility receipt through
-[Guards setup](../../guards/COMPANION.md) before export. Proof itself invokes no
-SSH, `gh` or network command. Credentials remain outside version control.
+The path check invokes no Git, SSH, `gh` or network command; PRIVATE publication is
+enforced at commit time by the Guards hooks and CI. Credentials remain outside version control.
 
 ## Export
 

@@ -52,8 +52,6 @@ class SyntheticExport:
         self.core.os = Proxy(os, environ=self.env)
         self.core.subprocess = Proxy(subprocess, run=self.run)
         self.core.load_resolver = lambda: SimpleNamespace(resolve_data_dir=lambda *a, **k: self.data)
-        self.proofs = fixtures.bind_public_boundary(self.core, self.root, self.run,
-                                                     lambda: {self.workspace["slug"]: "PRIVATE"}, self.env)
         previous = sys.modules.get("export_core")
         previous_path = list(sys.path)
         sys.modules["export_core"] = self.core
@@ -134,43 +132,10 @@ class Source11Contract(unittest.TestCase):
         self.serial += 1
         return SyntheticExport(self.root / str(self.serial), kind, case)
 
-    def test_environment_and_plan_boundary(self):
-        for label, environment, allowed in fixtures.source11_environment_cases():
-            with self.subTest(case=label):
-                h = self.harness()
-                h.env.update(environment)
-                code, output = h.main("plan")
-                self.assertEqual(code, 0 if allowed else 1, output)
-                self.assertFalse(h.data.exists())
-                self.assertFalse(h.exporter_calls())
-                if not allowed:
-                    self.assertFalse(h.calls)
-
-    def test_git_trust_configuration(self):
-        for key, value, allowed in fixtures.source11_transport_configs():
-            with self.subTest(case=key):
-                h = self.harness()
-                h.config = (key, value)
-                code, output = h.main("plan")
-                self.assertEqual(code, 0 if allowed else 1, output)
-                self.assertFalse(h.data.exists())
-                self.assertFalse(h.exporter_calls())
-
-    def test_environment_snapshot_is_bound_and_rechecked(self):
+    def test_destination_check_starts_no_subprocess(self):
         h = self.harness()
-        h.inject = h.workspace["mutation"]
-        h.core.private_destination(h.data)
-        self.assertEqual(len(h.proofs), 1)
-        self.assertTrue(h.calls)
-        for _, environment in h.calls:
-            self.assertTrue(set(h.inject).isdisjoint(environment))
-            self.assertEqual(environment["GIT_OPTIONAL_LOCKS"], "0")
-        count = len(h.calls)
-        with self.assertRaises(h.core.ExportError):
-            h.core.private_destination(h.data)
-        self.assertEqual(len(h.calls), count)
-        with self.assertRaises(AttributeError):
-            h.proofs[0].proof.signature = "synthetic-change"
+        self.assertEqual(h.core.private_destination(h.data)[0], h.data.resolve())
+        self.assertFalse(h.calls)
 
     def check_archive_paths(self, kind, case, allowed):
         h = self.harness(kind, case)
