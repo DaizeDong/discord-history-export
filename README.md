@@ -56,7 +56,11 @@ unknown releases. Plan and completed replay do not read credential values.
 
 ## Plan and execute
 
-Set `$SkillDir` to the installed `skills/discord-history-export` directory and `$Exporter` to the existing exporter executable. Run the [generated synthetic example](tests/fixtures/example.md) after substituting your authorized scope locally. `plan` validates arguments and the private destination, prints the frozen scope and commands, and does not read the credential or write output. Change `plan` to `execute` to run that scope.
+Set `$SkillDir` to the installed `skills/discord-history-export` directory and `$Exporter` to the existing exporter executable. Run the example below after substituting your authorized scope locally. `plan` validates arguments and the private destination, prints the frozen scope and commands, and does not read the credential or write output. Change `plan` to `execute` to run that scope.
+
+```powershell
+python "$SkillDir/scripts/export_history.py" plan --exporter "$Exporter" --credential-ref env:DISCORD_BOT_TOKEN --run-id synthetic-demo --guild-id 700000000000000001
+```
 
 Both actions accept `--guild-id` or `--channel-id`, `--after`, `--before`, `--media`, and `--resume`. Dates use ISO notation. `--run-id` must be one safe filename component. Commands work from any current directory because resources resolve from the script's canonical source location.
 
@@ -89,14 +93,9 @@ Source bytes, channel identities and media dependencies are defined in
 Both organizer and runner use the [storage path checks](DATA.md), including
 rechecking after exporter probes.
 
-## Verification and limits
+## Limits
 
-```bash
-python tools/make_fixtures.py
-python -m pytest tests -q
-```
-
-The offline suite generates synthetic Discord records and intercepts exporter calls. Storage controls also use real temporary Git worktrees; no Discord or GitHub request runs. It exercises local credentials, output boundaries, media integrity, retries, and a complete-tree installed alias. This establishes offline behavior only. It does not prove live Discord permissions, real exporter compatibility on every platform, plugin catalog activation, or unattended production operation. Media retained as remote URLs still needs network access; use `--media` for downloaded assets. An exporter error is never treated as a successful archive.
+Nothing here proves live Discord permissions, real exporter compatibility on every platform, plugin catalog activation, or unattended production operation. Media retained as remote URLs still needs network access; use `--media` for downloaded assets. An exporter error is never treated as a successful archive.
 
 ## Languages
 

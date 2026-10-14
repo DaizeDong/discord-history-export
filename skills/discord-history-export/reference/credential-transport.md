@@ -8,4 +8,4 @@ An independent current-source reference is [revision 427c6021ac2dca4a76fbcbe5531
 
 For other releases, the local export-command help must explicitly identify `DISCORD_TOKEN`, or preflight refuses execution. New source-proven releases need a reviewed evidence update. There is no token-argument fallback.
 
-The offline fixtures simulate a supported release whose help deliberately omits the environment variable, plus an unknown release with no transport proof. That proves the helper's decision path; it does not certify a downloaded executable or a real Discord session.
+This evidence does not certify a downloaded executable or a real Discord session.

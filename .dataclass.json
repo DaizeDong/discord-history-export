@@ -4,7 +4,7 @@
     "TOOL    = code, SKILL.md, docs, reference data, and metrics ABOUT THE SKILL. Public.",
     "FIXTURE = LIFELIKE test data: rows that look like real records, whose real version is",
     "          sitting right there in the operator's life and is structurally indistinguishable.",
-    "          Must be produced by tools/make_fixtures.py -- a real record cannot be regenerated,",
+    "          Must be produced by a generator -- a real record cannot be regenerated,",
     "          so pasting one in fails at commit. (A self-evidently fake canary or an Acme mock is",
     "          NOT lifelike and does not need a generator; the risk it guards against is a person",
     "          reaching for a convenient REAL example, and there is no temptation to reach for a",
@@ -25,13 +25,6 @@
     "runs/"
   ],
   "data_sealed": [],
-  "fixture": [
-    "tests/fixtures/catalog.json",
-    "tests/fixtures/example.md",
-    "tests/fixtures/source14-cases.json",
-    "tests/fixtures/source15-cases.json",
-    "tests/fixtures/source16-cases.json",
-    "tests/fixtures/test_native_storage.py"
-  ],
+  "fixture": [],
   "_data_home": "Resolved by guards/tools/datadir.py, with DISCORD_HISTORY_EXPORT_DATA_DIR override. The helper checks by path that every write lands in the separate companion worktree outside this source tree; PRIVATE publication is enforced at commit time by the Guards hooks and CI. Real output remains versioned there, never in this source tree."
 }

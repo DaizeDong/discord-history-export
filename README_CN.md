@@ -52,7 +52,11 @@ Bot 凭据保存在本地环境变量或仅所有者可读的文件中，文件�
 
 ## 预览与执行
 
-把 `$SkillDir` 指向安装位置下的 `skills/discord-history-export`，把 `$Exporter` 指向已有导出程序。参考[生成的合成示例](tests/fixtures/example.md)，在本机换成获授权的范围。`plan` 检查参数和私有输出位置，显示本次范围与命令，不读取凭据，也不写出产物。把 `plan` 改成 `execute` 后执行。
+把 `$SkillDir` 指向安装位置下的 `skills/discord-history-export`，把 `$Exporter` 指向已有导出程序。参考下面的示例，在本机换成获授权的范围。`plan` 检查参数和私有输出位置，显示本次范围与命令，不读取凭据，也不写出产物。把 `plan` 改成 `execute` 后执行。
+
+```powershell
+python "$SkillDir/scripts/export_history.py" plan --exporter "$Exporter" --credential-ref env:DISCORD_BOT_TOKEN --run-id synthetic-demo --guild-id 700000000000000001
+```
 
 两种操作都接受 `--guild-id` 或 `--channel-id`、`--after`、`--before`、`--media` 和 `--resume`。日期使用 ISO 格式，`--run-id` 必须是单个安全文件名。资源按脚本实际源码位置解析，所以可以从任意当前目录调用。
 
@@ -83,14 +87,9 @@ python "$SkillDir/scripts/reorganize.py" "$RawDir" "$OrganizedDir" "$ChannelsTxt
 整理与导出都按 [DATA.md](DATA.md) 检查存储，包括探测导出程序后再次验证目标，
 以及拒绝将被 Git 忽略的原始文件报告为完整结果。
 
-## 验证与限制
+## 限制
 
-```bash
-python tools/make_fixtures.py
-python -m pytest tests -q
-```
-
-离线测试使用生成的合成 Discord 记录，并拦截导出程序调用。存储边界测试还会使用真实的临时 Git 工作树，不会请求 Discord 或 GitHub。测试检查凭据、输出边界、媒体完整性、重试和完整安装目录别名。这只能证明离线行为，不能证明真实 Discord 权限、所有平台上的导出程序兼容性、插件目录激活或无人值守运行。仍为远程 URL 的媒体需要网络访问；需要下载附件时请加 `--media`。导出程序报错不会被当作成功。
+本仓不能证明真实 Discord 权限、所有平台上的导出程序兼容性、插件目录激活或无人值守运行。仍为远程 URL 的媒体需要网络访问；需要下载附件时请加 `--media`。导出程序报错不会被当作成功。
 
 ## 语言
 
