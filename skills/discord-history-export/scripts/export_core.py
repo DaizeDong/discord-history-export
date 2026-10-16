@@ -150,7 +150,7 @@ def resolve_data_dir():
         # Read discovery may skip absent paths; a writer must honor the explicit selection.
         return private_destination(selected, directory=True, data_root=True)
     try:
-        path = resolver.resolve_data_dir(SKILL, create=False)
+        path = resolver.resolve_data_dir(SKILL)
     except RuntimeError:
         raise ExportError("Private DATA is not initialized. Set DISCORD_HISTORY_EXPORT_DATA_DIR to a directory in a private Git companion.") from None
     if path is None:
