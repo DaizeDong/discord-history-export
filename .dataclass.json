@@ -10,7 +10,7 @@
     "          reaching for a convenient REAL example, and there is no temptation to reach for a",
     "          real value that would look obviously wrong next to FAKE_CANARY_XYZ.)",
     "DATA    = anything a REAL RUN produced. Versioned only in the private companion",
-    "          config, resolved at runtime by tools/datadir.py. This repo ships only the schema.",
+    "          config, resolved by fleet_guards.runtime.companion_resolver. This repo ships only the schema.",
     "data_sealed = a path that HELD real data, was purged, and must stay dead.",
     "",
     "Enforced by data_boundary.py from the local fleet-guards checkout through .githooks."
