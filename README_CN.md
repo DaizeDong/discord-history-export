@@ -27,18 +27,19 @@
 通过支持的插件管理器安装，或完整克隆仓库：
 
 ```bash
-git clone --recurse-submodules https://github.com/DaizeDong/discord-history-export.git
+git clone https://github.com/DaizeDong/discord-history-export.git
+pip install -e "$(git config --get fleet.guards)"
 ```
 
-已有克隆需运行 `git submodule update --init --recursive`。缺少 guards 子模块会直接报错。环境需要 Python 3.10+、Git，以及支持的 [DiscordChatExporter CLI 版本](https://github.com/Tyrrrz/DiscordChatExporter/releases)。脚本会先检查指定程序的版本和导出命令帮助，再读取 Bot 凭据；不会自动下载或安装导出工具。
+`git config fleet.guards` 指向本机 fleet-guards 检出，脚本经其中的 `fleet_guards` 包解析伴生仓，包缺失会直接报错。每个克隆执行一次 `git config core.hooksPath .githooks` 启用提交钩子。环境需要 Python 3.10+、Git，以及支持的 [DiscordChatExporter CLI 版本](https://github.com/Tyrrrz/DiscordChatExporter/releases)。脚本会先检查指定程序的版本和导出命令帮助，再读取 Bot 凭据；不会自动下载或安装导出工具。
 
 ## 私有 DATA 与凭据
 
 将 `DISCORD_HISTORY_EXPORT_DATA_DIR` 指向独立 PRIVATE Git 伴生仓准确的
 `<companion>/data`。显式选择为空或无效时直接失败；缺少的 `data/` 子目录只在执行时、
 路径检查通过后创建。未设置时使用共享伴生仓发现。写入只按路径检查：必须落在伴生仓
-工作树的 `data/` 内、不在本仓内，不经过链接或嵌套仓库。PRIVATE 发布由 Guards 提交钩子
-和 CI 在提交时把关。[DATA.md](DATA.md) 规定路径检查和保留规则。脚本不请求 GitHub，
+工作树的 `data/` 内、不在本仓内，不经过链接或嵌套仓库。PRIVATE 发布由 fleet-guards 钩子
+在提交时把关。[DATA.md](DATA.md) 规定路径检查和保留规则。脚本不请求 GitHub，
 也不自动暂存、提交或推送存档。
 
 Bot 凭据保存在本地环境变量或仅所有者可读的文件中，文件须位于公开源码目录和版本管理

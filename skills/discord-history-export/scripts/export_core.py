@@ -1,7 +1,6 @@
 """Private output boundaries and byte-preserving Discord archive validation."""
 import hashlib
 from html.parser import HTMLParser
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -32,13 +31,11 @@ def contains(parent, child):
 
 
 def load_resolver():
-    path = SOURCE_ROOT / "guards" / "tools" / "datadir.py"
-    if not path.is_file():
-        raise ExportError("Missing guards submodule. Run git submodule update --init --recursive in the source checkout.")
-    spec = importlib.util.spec_from_file_location("discord_export_guard_datadir", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    try:
+        from fleet_guards.runtime import companion_resolver
+    except ImportError as exc:
+        raise ExportError('fleet_guards is not installed; run: pip install -e "$(git config --get fleet.guards)"') from exc
+    return companion_resolver(source_root=SOURCE_ROOT)
 
 
 def destination_path(path):
@@ -68,7 +65,7 @@ def private_destination(path, *, directory=False, data_root=False):
 
     The companion is the nearest enclosing .git marker and must lie outside this source
     tree. Returns (target, companion root). Publication state (the companion being
-    PRIVATE) is enforced at commit time by the repository hooks and CI.
+    PRIVATE) is enforced at commit time by the repository hooks.
     """
     target = destination_path(path)
     if contains(SOURCE_ROOT, target):

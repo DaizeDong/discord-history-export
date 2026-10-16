@@ -27,10 +27,11 @@ This is a one-shot archive helper. It does not provide continuous monitoring or 
 Install the plugin through your supported plugin manager, or clone the complete repository:
 
 ```bash
-git clone --recurse-submodules https://github.com/DaizeDong/discord-history-export.git
+git clone https://github.com/DaizeDong/discord-history-export.git
+pip install -e "$(git config --get fleet.guards)"
 ```
 
-An existing clone needs `git submodule update --init --recursive`. Missing guard code is a hard error. Install Python 3.10+, Git, and a supported [DiscordChatExporter CLI release](https://github.com/Tyrrrz/DiscordChatExporter/releases). The helper probes the supplied executable's version and export-command help before using a credential. It does not install or download an exporter.
+`git config fleet.guards` names the local fleet-guards checkout; the helper resolves the companion through its `fleet_guards` package, and a missing package is a hard error. Enable the commit hooks once per clone with `git config core.hooksPath .githooks`. Install Python 3.10+, Git, and a supported [DiscordChatExporter CLI release](https://github.com/Tyrrrz/DiscordChatExporter/releases). The helper probes the supplied executable's version and export-command help before using a credential. It does not install or download an exporter.
 
 ## Private DATA and credentials
 
@@ -39,8 +40,8 @@ PRIVATE Git companion. An explicit empty or invalid selection fails; a missing
 `data/` child is created only during execution after the path check. Without an
 override, shared companion discovery applies. Writes are checked by path only: inside
 the companion worktree's `data/`, outside this checkout, with no links or nested
-repositories. PRIVATE publication is enforced at commit time by the Guards hooks and
-CI. [DATA.md](DATA.md) defines the path checks and retention. The helper does not
+repositories. PRIVATE publication is enforced at commit time by the fleet-guards
+hooks. [DATA.md](DATA.md) defines the path checks and retention. The helper does not
 contact GitHub, or stage, commit or push archives.
 
 Keep an authorized bot credential in a local environment variable or an owner-only

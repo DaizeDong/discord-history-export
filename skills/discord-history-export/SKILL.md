@@ -9,7 +9,7 @@ Use an authorized bot credential for a server the user administers or whose admi
 
 ## Local setup
 
-The complete source tree requires its guards submodule. Read [reference/credential-transport.md](reference/credential-transport.md) for supported exporter evidence. Python 3.10+, Git and an existing DiscordChatExporter CLI executable are required. Do not download or install an exporter as part of an export request without the user's authorization.
+The helper requires the `fleet_guards` package installed from the local fleet-guards checkout (`pip install -e "$(git config --get fleet.guards)"`). Read [reference/credential-transport.md](reference/credential-transport.md) for supported exporter evidence. Python 3.10+, Git and an existing DiscordChatExporter CLI executable are required. Do not download or install an exporter as part of an export request without the user's authorization.
 
 Resolve the installed skill directory before invoking `scripts/export_history.py`. Paths in commands must be absolute when running from an unrelated current directory. The helper discovers the canonical source tree itself, including through an installed alias.
 
@@ -27,7 +27,7 @@ policy, rechecks after exporter probes and read-only replay.
 Credentials are local references only: `env:VARIABLE_NAME` or `file:ABSOLUTE_PATH`. Never ask the user to paste a credential into a conversation. The helper reads the reference only for execution and passes the value via the exporter's child `DISCORD_TOKEN` environment. Do not construct a token command-line flag. No browser credential extraction is part of this workflow.
 
 The path check invokes no Git, SSH, `gh` or network command; PRIVATE publication is
-enforced at commit time by the Guards hooks and CI. Credentials remain outside version control.
+enforced at commit time by the fleet-guards hooks. Credentials remain outside version control.
 
 ## Export
 
