@@ -147,7 +147,7 @@ def resolve_data_dir():
     if selected is not None:
         if not selected.strip():
             raise ExportError("DISCORD_HISTORY_EXPORT_DATA_DIR is empty. Select a directory in a private Git companion.")
-        # Read discovery may skip absent paths; a writer must honor the explicit selection.
+        # The shared resolver requires the directory to exist; a writer may create data/ in a checked companion.
         return private_destination(selected, directory=True, data_root=True)
     try:
         path = resolver.resolve_data_dir(SKILL)
