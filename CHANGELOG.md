@@ -5,6 +5,7 @@ All notable changes to this project are documented here (Keep a Changelog style)
 ## [Unreleased]
 
 ### Changed
+- Raised the companion working-data review threshold from 64 MiB to 256 MiB so a full guild export (raw HTML and JSON under `data/raw/<archive>/`) fits one retained archive.
 - Removed the `guards` and `style` submodules and the `pii-guard`, `dash-guard`, `doc-contract`, `load-budget` and `fleet-sync` workflows. The `.githooks` shims run the local fleet-guards and fleet-style checkouts named by `git config fleet.guards` and `fleet.style` and block when either is unset. `export_core` resolves the companion through `fleet_guards.runtime.companion_resolver`.
 - Deleted the test suite, its fixture generator and the CI workflow that ran it; the README example is now inline.
 - Destination checks are one pass: `private_destination` returns the target and its companion root (the nearest `.git` marker outside this checkout), and drops the always-true containment test, the post-check re-resolve and the refusal of a companion that sits inside another checkout. `private_topology` walks the tree once, checking links per entry and refusing a nested repository below the companion root, instead of re-running the full destination check for every entry. `execute` refuses a run directory that belongs to a different repository than `data/`. The manifest `companion` field remains the companion directory name. The source11 test harness no longer emulates Git.

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "tool": "discord-history-export",
-  "max_bytes": 67108864,
+  "max_bytes": 268435456,
   "artifacts": [
     {
       "artifact_id": "readme",
